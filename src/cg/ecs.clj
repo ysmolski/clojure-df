@@ -6,75 +6,88 @@
 (defn new-ecs []
   (Ecs. 0 {} {}))
 
-(defn new-ecs-ref []
-  (ref (new-ecs)))
+;; (defn new-ecs-ref []
+;;   (ref (new-ecs)))
 
 ;;;; 1st level
 ;;;; internal representation should be hidden
 
-(defn inc-id [s]
-  (update-in s [:id] inc))
+(defn last-id [ecs]
+  (dec (get ecs :id)))
 
-(defn dissoc-in [s ks key]
-  (update-in s ks dissoc key))
+(defn inc-id [ecs]
+  (update-in ecs [:id] inc))
+
+(defn dissoc-in [ecs ks key]
+  (update-in ecs ks dissoc key))
 
 
 ;;;; 2nd level
 ;;;; interface for ECS
 (declare rem-c)
 
-(defn all-c [s ent]
-  (keys (get-in s [:etoc ent])))
+(defn all-c [ecs ent]
+  (keys (get-in ecs [:etoc ent])))
 
-(defn all-e [s cname]
-  (keys (get-in s [:ctoe cname])))
+(defn all-e [ecs cname]
+  (keys (get-in ecs [:ctoe cname])))
 
-(defn add-e [s name]
-  (let [id (:id s)]
-    (-> s
+(defn add-e [ecs name]
+  (let [id (:id ecs)]
+    (-> ecs
         (inc-id)
         (assoc-in [:etoc id] {::name name}))))
 
-(defn rem-e [s ent]
+(defn rem-e
+  "Removes entity along with components"
+  [ecs ent]
   (-> (reduce #(rem-c %1 ent %2)
-              s
-              (all-c s ent))
+              ecs
+              (all-c ecs ent))
       (dissoc-in [:etoc] ent)))
 
-(defn add-c [s ent c]
+(defn add-c
+  "Adds component to entity"
+  [ecs ent c]
   (let [cname (c ::name)
         c-without-name (dissoc c ::name)]
-    (-> s
+    (-> ecs
         (assoc-in [:etoc ent cname] c-without-name)
         (assoc-in [:ctoe cname ent] 1))))
 
 (defn rem-c
-  [s ent cname]
-  (-> s
+  "Removes component from ECS"
+  [ecs ent cname]
+  (-> ecs
       (dissoc-in [:etoc ent] cname)
       (dissoc-in [:ctoe cname] ent)))
 
-(defn has? [s ent cname]
-  (contains? (get-in @s [:etoc ent]) cname))
+(defn has?
+  "Checks is Entity contains component"
+  [ecs ent cname]
+  (contains? (get-in ecs [:etoc ent]) cname))
 
-(defn get-e-name [s id]
-  (get-in s [:etoc id ::name]))
+(defn get-e-name [ecs id]
+  (get-in ecs [:etoc id ::name]))
 
-(defn get-e [s id]
-  (get-in s [:etoc id]))
+(defn get-e [ecs id]
+  (get-in ecs [:etoc id]))
 
-(defn get-comp [s id cname]
-  (get-in s [:etoc id cname]))
+(defn get-comp [ecs id cname]
+  (get-in ecs [:etoc id cname]))
+
+(defn get-val [ecs id cname k]
+  (get-in ecs [:etoc id cname k]))
 
 ;; not sure. is it needed???
-(defn update-comp [s id cname f & args]
-  (apply update-in s [:etoc id cname] f args))
+(defn update-comp [ecs id cname f & args]
+  (apply update-in ecs [:etoc id cname] f args))
 
-(defn update-val [s id cname k f & args]
-  (apply update-in s [:etoc id cname k] f args))
+(defn update-val [ecs id cname k f & args]
+  (apply update-in ecs [:etoc id cname k] f args))
 
-(defn set-val [s id cname k val]
-  (assoc-in s [:etoc id cname k] val))
+(defn set-val [ecs id cname k val]
+  (assoc-in ecs [:etoc id cname k] val))
 
 ;; Performance note:
 ;; We should update tree on the highest possible level, if you perform
@@ -109,7 +122,17 @@
 
 (defcomp health []
   :dead false
-  :count 0)
+  :count 100)
+
+(defcomp target [id]
+  :id id)
+
+(defcomp movable [x y speed]
+  :x x
+  :y y
+  :speed speed)
+
+(defcomp controllable [])
 
 (defcomp keyboard [])
 (defcomp renderable [])
@@ -121,6 +144,28 @@
 
 ;;;; Systems
 
+
+;;;; Util
+
+
+; load the entity into ECS
+
+(defn load-entity
+  "Loads into ECS an Entity of `ename` and vector of components"
+  [ecs ename comps]
+  (let [s (add-e ecs ename)
+        id (last-id s)]
+    (reduce #(add-c %1 id %2) s comps)))
+
+; load hash-map of entities into ECS
+
+(defn load-scene
+  "Loads into ECS a scene, which is hashmap, where keys are names of entities and values are vectors containing components"
+  [ecs scene]
+  (reduce (fn [ecs [ename comps]]
+            (load-entity ecs ename comps))
+          ecs
+          (seq scene)))
 
 ;;;; -------------------------
 
@@ -141,22 +186,22 @@
   (defn foo
     "I don't do a whole lot."
     [x]
-    (println x "Hello, World!")))
+    (println x "Hello, World!"))
 
 
-(defn test-run [s cycles]
-  (loop [s s
-         n cycles]
-    (if (> n 0)
-      (recur
-       (-> s
-           (set-val 0 :health :count 1))
-       (dec n))
-      s)))
+  (defn test-run [s cycles]
+    (loop [s s
+           n cycles]
+      (if (> n 0)
+        (recur
+         (-> s
+             (set-val 0 :health :count 1))
+         (dec n))
+        s)))
 
-(let [s (-> (new-ecs)
-            (add-e :player)
-            (add-e :mob)
-            (add-c 0 (health))
-            (add-c 1 (health)))]
-  (prn (time (prn (test-run s 1000000)))))
+  (let [s (-> (new-ecs)
+              (add-e :player)
+              (add-e :mob)
+              (add-c 0 (health))
+              (add-c 1 (health)))]
+    (prn (time (prn (test-run s 1000000))))))
