@@ -12,42 +12,44 @@
 ;;;; 1st level
 ;;;; internal representation should be hidden
 
-(defn last-id [ecs]
+(defn last-id
+  "returns id of last added entity"
+  [ecs]
   (dec (get ecs :id)))
 
-(defn inc-id [ecs]
+(defn inc-id
+  "returns ECS with increased id counter"
+  [ecs]
   (update-in ecs [:id] inc))
 
-(defn dissoc-in [ecs ks key]
+(defn dissoc-in
+  "removes key in the nested assoc structure using ks as vector of keys"
+  [ecs ks key]
   (update-in ecs ks dissoc key))
 
 
 ;;;; 2nd level
 ;;;; interface for ECS
-(declare rem-c)
+(declare get-id-cnames get-cname-ids rem-c)
 
-(defn all-c [ecs ent]
-  (keys (get-in ecs [:etoc ent])))
-
-(defn all-e [ecs cname]
-  (keys (get-in ecs [:ctoe cname])))
-
-(defn add-e [ecs name]
+(defn add-e
+  "adds entity to the ECS. added id should be extracted using last-id function"
+  [ecs name]
   (let [id (:id ecs)]
     (-> ecs
         (inc-id)
         (assoc-in [:etoc id] {::name name}))))
 
 (defn rem-e
-  "Removes entity along with components"
+  "removes entity along with components"
   [ecs ent]
   (-> (reduce #(rem-c %1 ent %2)
               ecs
-              (all-c ecs ent))
+              (get-id-cnames ecs ent))
       (dissoc-in [:etoc] ent)))
 
 (defn add-c
-  "Adds component to entity"
+  "adds component to entity"
   [ecs ent c]
   (let [cname (c ::name)
         c-without-name (dissoc c ::name)]
@@ -56,37 +58,73 @@
         (assoc-in [:ctoe cname ent] 1))))
 
 (defn rem-c
-  "Removes component from ECS"
+  "removes component from ECS"
   [ecs ent cname]
   (-> ecs
       (dissoc-in [:etoc ent] cname)
       (dissoc-in [:ctoe cname] ent)))
 
 (defn has?
-  "Checks is Entity contains component"
+  "checks is entity contains component"
   [ecs ent cname]
   (contains? (get-in ecs [:etoc ent]) cname))
 
-(defn get-e-name [ecs id]
+(defn get-e-name
+  "returns name of entity by id"
+  [ecs id]
   (get-in ecs [:etoc id ::name]))
 
-(defn get-e [ecs id]
+(defn get-e
+  "returns entity by id"
+  [ecs id]
   (get-in ecs [:etoc id]))
 
-(defn get-comp [ecs id cname]
+(defn get-comp
+  "returns component `cname` in entity by `id`"
+  [ecs id cname]
   (get-in ecs [:etoc id cname]))
 
-(defn get-val [ecs id cname k]
+(defn get-val
+  "returns entity-component value"
+  [ecs id cname k]
   (get-in ecs [:etoc id cname k]))
 
+(defn get-id-cnames
+  "returns keys of components of entity"
+  [ecs id]
+  (keys (get-in ecs [:etoc id])))
+
+(defn get-cname-ids
+  "returns ids of entities which have cname component"
+  [ecs cname]
+  (keys (get-in ecs [:ctoe cname])))
+
+(defn get-cname-ents
+  "return entities which have cname component"
+  [ecs cname]
+  (map #(get-e ecs %) (get-cname-ids ecs cname)))
+  
 ;; not sure. is it needed???
-(defn update-comp [ecs id cname f & args]
+(defn update-comp
+  "updates whole component using function f and args"
+  [ecs id cname f & args]
   (apply update-in ecs [:etoc id cname] f args))
 
-(defn update-val [ecs id cname k f & args]
+(defn update-val
+  "updates value in the component using function f and args"
+  [ecs id cname k f & args]
   (apply update-in ecs [:etoc id cname k] f args))
 
-(defn set-val [ecs id cname k val]
+(defn update-entity
+  "Takes entity by id and calls function f with entity and args as parameters.
+  Returned entity is updated into ECS"
+  [ecs id f & args]
+  (let [r (apply f (get-e ecs id) args)]
+    (assoc-in ecs [:etoc id] r)))
+
+(defn set-val
+  "sets value in the component"
+  [ecs id cname k val]
   (assoc-in ecs [:etoc id cname k] val))
 
 ;; Performance note:
@@ -124,8 +162,9 @@
   :dead false
   :count 100)
 
-(defcomp target [id]
-  :id id)
+(defcomp target [x y]
+  :x x
+  :y y)
 
 (defcomp movable [x y speed]
   :x x
@@ -135,7 +174,8 @@
 (defcomp controllable [])
 
 (defcomp keyboard [])
-(defcomp renderable [])
+(defcomp renderable [s]
+  :char s)
 
 (defcomp container []
   :items []
