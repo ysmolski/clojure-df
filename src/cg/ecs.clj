@@ -1,5 +1,6 @@
 (ns cg.ecs
-  (:use [clojure.pprint :only [pprint]]))
+  (:use [clojure.pprint :only [pprint]])
+  (:use [clojure.set :only [intersection]]))
 
 (defrecord Ecs [id etoc ctoe])
 
@@ -95,14 +96,21 @@
   (keys (get-in ecs [:etoc id])))
 
 (defn get-cname-ids
-  "returns ids of entities which have cname component"
+  "Returns ids of entities which have the component
+  specified in cname"
   [ecs cname]
   (keys (get-in ecs [:ctoe cname])))
 
-(defn get-cname-ents
-  "return entities which have cname component"
-  [ecs cname]
-  (map #(get-e ecs %) (get-cname-ids ecs cname)))
+(defn get-cnames-ids
+  "Returns ids of entities which have all the components
+  specified in sequence cnames"
+  [ecs cnames]
+  (apply intersection (map #(set (get-cname-ids ecs %)) cnames)))
+
+(defn get-cnames-ents
+  "return entities which have components specified by seq cnames"
+  [ecs cnames]
+  (map #(get-e ecs %) (get-cnames-ids ecs cnames)))
   
 ;; not sure. is it needed???
 (defn update-comp
@@ -157,30 +165,6 @@
 (defmacro defcomp [name params & r]
   `(defn ~name ~params
      (hash-map ::name ~(keyword (clojure.core/name name)) ~@r)))
-
-(defcomp health []
-  :dead false
-  :count 100)
-
-(defcomp target [x y]
-  :x x
-  :y y)
-
-(defcomp movable [x y speed]
-  :x x
-  :y y
-  :speed speed)
-
-(defcomp controllable [])
-
-(defcomp keyboard [])
-(defcomp renderable [s]
-  :char s)
-
-(defcomp container []
-  :items []
-  :weight 0
-  :size 0)
 
 ;;;; Systems
 
