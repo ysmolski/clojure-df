@@ -3,7 +3,7 @@
   (:use cg.queue))
 
 (def node {:move [:position :velocity]
-           :guide [:position :destination :velocity :speed]
+           :guide [:position :path :velocity :speed]
            :render [:position :renderable]})
 
 (defcomp health []

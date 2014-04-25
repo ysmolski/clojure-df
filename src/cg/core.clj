@@ -4,21 +4,21 @@
   [:require [quil.core :as q]])
 
 
-(def update-sleep-ms 50)
+(def update-sleep-ms 20)
 (def running (atom true))
 
 (def scene {:dw [(health)
-                 (speed 200)
+                 (speed 100)
                  (position 10 10)
                  (velocity 0.02 0.02)
                  (controllable)
                  (renderable "D")
-                 (destination 200 100)
-                 (path [[100 10]
+                 (path [[200 300]
+                        [100 10]
                         [350 180]])]
             :beast [(health)
                     (position 100 100)
-                    (velocity 0 0)
+;                    (velocity 0 0)
                     (renderable "b")]})
 
 (def world (atom (load-scene (new-ecs) scene)))
@@ -35,7 +35,7 @@
         (update-in [:position :y] + dy))))
 
 (defn system-move [w time]
-  (let [ids (get-cnames-ids w (node :render))]
+  (let [ids (get-cnames-ids w (node :move))]
     (reduce #(update-entity %1 %2 move time) w ids)))
 
 
@@ -57,7 +57,7 @@
   (let [dx (- x2 x1)
         dy (- y2 y1)
         dist (distance dx dy)]
-    (if (< dist 10)
+    (if (< dist 4)
       [0 0]
       (let [relation (/ (float speed)
                         dist)
@@ -65,29 +65,21 @@
             vy (* relation dy)]
         [vx vy]))))
 
-(defn update-destination
-  "Gets first point from path if exists and set destination to it.
-  Otherwise - no destination"
-  [e]
-  (if-let [[x y] (peek (-> e :path :p))]
-        (-> e
-            (set-c (destination x y)) 
-            (update-in [:path :p] pop))
-        (rem-c e :destination)))        ; you cannot do that. you need to
-                                        ; call to higher level operator on
-                                        ; ECS structure :(
-
+;;; TODO refactor this piece
 (defn guide
   "calculates velocity based on position, destination and speed"
   [e time]
-  (let [p (e :position)
-        d (e :destination)
-        s (-> e :speed :s)
-        [vx vy] (project-speed (p :x) (p :y) (d :x) (d :y) s)]
-    (if (or (= vx 0)
-            (= vy 0))
-      (update-destination e)
-      (set-c e (velocity vx vy)))))
+  (let [d (peek (-> e :path :p))]
+    (if (nil? d)
+      e
+      (let [p (e :position)
+            s (-> e :speed :s)
+            [vx vy] (project-speed (p :x) (p :y) (d 0) (d 1) s)]
+        (if (= vx 0)
+          (-> e
+              (update-in [:path :p] pop)
+              (set-c (velocity 0 0)))
+          (set-c e (velocity vx vy)))))))
 
 (defn system-guide [w time]
   (let [ids (get-cnames-ids w (node :guide))]
@@ -112,14 +104,20 @@
     ;; (prn w)
     (-> w
         (update-val 1 :health :count inc)
+        (system-move time)
         (system-guide time)
-        (system-move time))))
+        )))
+
+(defn path-add [e x y]
+  (let [e2 (update-in e [:path :p] conj [x y])]
+    (prn (e2 :path) (e2 :destination))
+    e2))
 
 (defn on-mouse
   [w x y e]
-  (do
-    (prn x y e)
-    w))
+  (prn x y e)
+  (let [ids (get-cnames-ids w [:controllable])]
+    (reduce #(update-entity %1 %2 path-add x y) w ids)))
 
 ;; -----
 
