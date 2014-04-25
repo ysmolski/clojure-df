@@ -137,7 +137,7 @@
         r (apply f e args)]
                                         ; TODO add updating of :CTOE
                                         ; hashmap after entity update    
-    (when (not (= (keys e) (keys r))) 
+    (when (not (= e r)) 
       (prn (keys e) '-> (keys r)))
     (assoc-in ecs [:etoc id] r)))
 
