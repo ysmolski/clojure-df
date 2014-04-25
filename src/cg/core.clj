@@ -14,8 +14,7 @@
                  (controllable)
                  (renderable "D")
                  (path [[200 300]
-                        [100 10]
-                        [350 180]])]
+                        [100 10]])]
             :beast [(health)
                     (position 100 100)
 ;                    (velocity 0 0)
@@ -24,6 +23,10 @@
 (def world (atom (load-scene (new-ecs) scene)))
 
 ;;; Systems
+
+(defn update-system [w time update-fn comp-names]
+  (let [ids (get-cnames-ids w comp-names)]
+    (reduce #(update-entity %1 %2 update-fn time) w ids)))
 
 (defn move [e time]
   (let [v (e :velocity)
@@ -35,9 +38,7 @@
         (update-in [:position :y] + dy))))
 
 (defn system-move [w time]
-  (let [ids (get-cnames-ids w (node :move))]
-    (reduce #(update-entity %1 %2 move time) w ids)))
-
+  (update-system w time move (node :move)))
 
 ;;; Guide System
 
@@ -57,7 +58,7 @@
   (let [dx (- x2 x1)
         dy (- y2 y1)
         dist (distance dx dy)]
-    (if (< dist 4)
+    (if (< dist 2)
       [0 0]
       (let [relation (/ (float speed)
                         dist)
@@ -82,13 +83,12 @@
           (set-c e (velocity vx vy)))))))
 
 (defn system-guide [w time]
-  (let [ids (get-cnames-ids w (node :guide))]
-    (reduce #(update-entity %1 %2 guide time) w ids)))
+  (update-system w time guide (node :guide)))
 
 ;;; Path Finding
-(defn system-path-finding [w time]
-  (let [ids (get-cnames-ids w (node :guide))]
-    (reduce #(update-entity %1 %2 guide time) w ids)))
+;; (defn system-path-finding [w time]
+;;   (let [ids (get-cnames-ids w (node :guide))]
+;;     (reduce #(update-entity %1 %2 guide time) w ids)))
 
 ;;; Quil handlers
 
@@ -135,7 +135,7 @@
   (doseq [e ents]
     (let [m (e :position)
           r (e :renderable)]
-      (q/text (r :char) (m :x) (+ 10 (m :y))))
+      (q/text (r :char) (- (m :x) 6) (+ 8 (m :y))))
     )
   )
 
