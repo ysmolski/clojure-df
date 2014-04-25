@@ -1,5 +1,6 @@
 (ns cg.comps
-  (:use [cg.ecs :only [defcomp]]))
+  (:use [cg.ecs :only [defcomp]])
+  (:use cg.queue))
 
 (def node {:move [:position :velocity]
            :guide [:position :destination :velocity :speed]
@@ -14,7 +15,7 @@
   :y y)
 
 (defcomp path [points]
-  :p points)
+  :p (apply queue points))
 
 (defcomp velocity [x y]
   :x x

@@ -1,6 +1,7 @@
 (ns cg.ecs
   (:use [clojure.pprint :only [pprint]])
-  (:use [clojure.set :only [intersection]]))
+  (:use [clojure.set :only [intersection]])
+  (:use [cg.queue]))
 
 (defrecord Ecs [id etoc ctoe])
 
@@ -31,44 +32,49 @@
 
 ;;;; 2nd level
 ;;;; interface for ECS
-(declare get-id-cnames get-cname-ids rem-c)
+(declare get-cnames get-cname-ids rem-c)
 
 (defn add-e
   "adds entity to the ECS. added id should be extracted using last-id function"
-  [ecs name]
+  [ecs entity-name]
   (let [id (:id ecs)]
     (-> ecs
         (inc-id)
-        (assoc-in [:etoc id] {::name name}))))
+        (assoc-in [:etoc id] {::name entity-name}))))
 
 (defn rem-e
   "removes entity along with components"
-  [ecs ent]
-  (-> (reduce #(rem-c %1 ent %2)
+  [ecs entity-id]
+  (-> (reduce #(rem-c %1 entity-id %2)
               ecs
-              (get-id-cnames ecs ent))
-      (dissoc-in [:etoc] ent)))
+              (get-cnames ecs entity-id))
+      (dissoc-in [:etoc] entity-id)))
 
-(defn add-c
+(defn set-c
   "adds component to entity"
-  [ecs ent c]
-  (let [cname (c ::name)
-        c-without-name (dissoc c ::name)]
-    (-> ecs
-        (assoc-in [:etoc ent cname] c-without-name)
-        (assoc-in [:ctoe cname ent] 1))))
+  ([entity comp]
+     (let [cname (comp ::name)]
+       (assoc entity cname (dissoc comp ::name))))
+  ([ecs entity-id c]
+     (let [cname (c ::name)
+           c-without-name (dissoc c ::name)]
+       (-> ecs
+           (assoc-in [:etoc entity-id cname] c-without-name)
+           (assoc-in [:ctoe cname entity-id] 1)))))
 
 (defn rem-c
-  "removes component from ECS"
-  [ecs ent cname]
-  (-> ecs
-      (dissoc-in [:etoc ent] cname)
-      (dissoc-in [:ctoe cname] ent)))
+  "removes component from entity or ECS"
+  ([entity cname]
+     (dissoc entity cname))
+  ([ecs entity-id cname]
+     (-> ecs
+         (dissoc-in [:etoc entity-id] cname)
+         (dissoc-in [:ctoe cname] entity-id))))
 
 (defn has?
   "checks is entity contains component"
-  [ecs ent cname]
-  (contains? (get-in ecs [:etoc ent]) cname))
+  [ecs entity-id cname]
+  (contains? (get-in ecs [:etoc entity-id]) cname))
 
 (defn get-e-name
   "returns name of entity by id"
@@ -77,8 +83,8 @@
 
 (defn get-e
   "returns entity by id"
-  [ecs id]
-  (get-in ecs [:etoc id]))
+  [ecs entity-id]
+  (get-in ecs [:etoc entity-id]))
 
 (defn get-comp
   "returns component `cname` in entity by `id`"
@@ -90,7 +96,7 @@
   [ecs id cname k]
   (get-in ecs [:etoc id cname k]))
 
-(defn get-id-cnames
+(defn get-cnames
   "returns keys of components of entity"
   [ecs id]
   (keys (get-in ecs [:etoc id])))
@@ -127,7 +133,12 @@
   "Takes entity by id and calls function f with entity and args as parameters.
   Returned entity is updated into ECS"
   [ecs id f & args]
-  (let [r (apply f (get-e ecs id) args)]
+  (let [e (get-e ecs id)
+        r (apply f e args)]
+                                        ; TODO add updating of :CTOE
+                                        ; hashmap after entity update    
+    (when (not (= (keys e) (keys r))) 
+      (prn (keys e) '-> (keys r)))
     (assoc-in ecs [:etoc id] r)))
 
 (defn set-val
@@ -179,7 +190,7 @@
   [ecs ename comps]
   (let [s (add-e ecs ename)
         id (last-id s)]
-    (reduce #(add-c %1 id %2) s comps)))
+    (reduce #(set-c %1 id %2) s comps)))
 
 ; load hash-map of entities into ECS
 
@@ -226,6 +237,6 @@
   (let [s (-> (new-ecs)
               (add-e :player)
               (add-e :mob)
-              (add-c 0 (health))
-              (add-c 1 (health)))]
+              (set-c 0 (health))
+              (set-c 1 (health)))]
     (prn (time (prn (test-run s 1000000))))))

@@ -4,11 +4,11 @@
   [:require [quil.core :as q]])
 
 
-(def update-sleep-ms 100)
+(def update-sleep-ms 50)
 (def running (atom true))
 
 (def scene {:dw [(health)
-                 (speed 50)
+                 (speed 200)
                  (position 10 10)
                  (velocity 0.02 0.02)
                  (controllable)
@@ -57,7 +57,7 @@
   (let [dx (- x2 x1)
         dy (- y2 y1)
         dist (distance dx dy)]
-    (if (< dist speed)
+    (if (< dist 10)
       [0 0]
       (let [relation (/ (float speed)
                         dist)
@@ -69,13 +69,13 @@
   "Gets first point from path if exists and set destination to it.
   Otherwise - no destination"
   [e]
-  (if-let [[x y] (first (-> e :path :p))]
+  (if-let [[x y] (peek (-> e :path :p))]
         (-> e
-            (assoc :destination (destination x y)) ; refactor
-            (update-in [:path :p] rest))
-        (dissoc e :destination))) ; you cannot do that. you need to
-                                  ; call to higher level operator on
-                                  ; ECS structure :(
+            (set-c (destination x y)) 
+            (update-in [:path :p] pop))
+        (rem-c e :destination)))        ; you cannot do that. you need to
+                                        ; call to higher level operator on
+                                        ; ECS structure :(
 
 (defn guide
   "calculates velocity based on position, destination and speed"
@@ -87,7 +87,7 @@
     (if (or (= vx 0)
             (= vy 0))
       (update-destination e)
-      (assoc e :velocity (velocity vx vy)))))  ; refactor
+      (set-c e (velocity vx vy)))))
 
 (defn system-guide [w time]
   (let [ids (get-cnames-ids w (node :guide))]
