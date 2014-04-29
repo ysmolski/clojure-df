@@ -3,30 +3,39 @@
   [:use cg.comps]
   [:require [quil.core :as q]])
 
+(def ui
+  {:window-border 10
+   :tile-size 20
+   :text-size 15
+   :char-color 200
+   :ui-color 40
+   :background-color 25
+   :foreground-color 200
+   })
+
+(declare pos2pix pix2pos epos2pix pos-middle tiles)
 
 (def update-sleep-ms 20)
 (def running (atom true))
 
 (def scene {:dw [(health)
-                 (speed 100)
+                 (speed 10)
                  (position 10 10)
                  (velocity 0.02 0.02)
                  (controllable)
                  (renderable "D")
-                 (path [[200 300]
-                        [100 10]])]
+                 (path [[12 12]
+                        [5 5]])
+                 (destination 0 0)]
             :beast [(health)
-                    (position 100 100)
-;                    (velocity 0 0)
+                    (position 15 15)
+                                        ;                    (velocity 0 0)
                     (renderable "b")]})
 
 (def world (atom (load-scene (new-ecs) scene)))
 
 ;;; Systems
 
-(defn update-system [w time update-fn comp-names]
-  (let [ids (get-cnames-ids w comp-names)]
-    (reduce #(update-entity %1 %2 update-fn time) w ids)))
 
 (defn move [e time]
   (let [v (e :velocity)
@@ -38,7 +47,7 @@
         (update-in [:position :y] + dy))))
 
 (defn system-move [w time]
-  (update-system w time move (node :move)))
+  (update-comps w (node :move) move time))
 
 ;;; Guide System
 
@@ -58,7 +67,7 @@
   (let [dx (- x2 x1)
         dy (- y2 y1)
         dist (distance dx dy)]
-    (if (< dist 2)
+    (if (< dist 0.1)
       [0 0]
       (let [relation (/ (float speed)
                         dist)
@@ -79,11 +88,12 @@
         (if (= vx 0)
           (-> e
               (update-in [:path :p] pop)
-              (set-c (velocity 0 0)))
+              (set-c (velocity 0 0))
+              (rem-c :destination))
           (set-c e (velocity vx vy)))))))
 
 (defn system-guide [w time]
-  (update-system w time guide (node :guide)))
+  (update-comps w (node :guide) guide time))
 
 ;;; Path Finding
 ;; (defn system-path-finding [w time]
@@ -116,43 +126,78 @@
 (defn on-mouse
   [w x y e]
   (prn x y e)
-  (let [ids (get-cnames-ids w [:controllable])]
-    (reduce #(update-entity %1 %2 path-add x y) w ids)))
+  (let [ids (get-cnames-ids w [:controllable])
+        x (pos-middle (pix2pos x))
+        y (pos-middle (pix2pos y))
+        w-tiles (tiles (q/width))
+        h-tiles (tiles (q/height))]
+    (prn x y e)
+    (if (and (>= x 0)
+             (>= y 0)
+             (< x w-tiles)
+             (< y h-tiles))
+      (update-entities w ids path-add x y)
+      w)))
 
-;; -----
+;;; RENDERING STUFF
 
-(def params
-  {:big-text-size 20
-   :small-text-size 10
-   :background-color 25
-   :foreground-color 200})
+(defn tiles [size]
+  (let [tile-size (ui :tile-size)]
+    (quot (- size (* tile-size 2))
+          tile-size)))
 
-(defn setup []
-  (q/smooth)
-  (q/frame-rate 60))
+(defn pos2pix [position]
+  (+ (ui :tile-size) (* position (ui :tile-size))))
 
-(defn draw-objs [ents]
+(defn epos2pix
+  "converts entity position to pixels on the screen"
+  [position]
+  (pos2pix (+ 0.5 position)))
+
+(defn pix2pos [pixel]
+  (/ (float (- pixel (ui :tile-size)))
+     (ui :tile-size)))
+
+(defn pos-middle [position]
+  (quot position 1))
+
+(defn draw-ents [ents]
   (doseq [e ents]
     (let [m (e :position)
-          r (e :renderable)]
-      (q/text (r :char) (- (m :x) 6) (+ 8 (m :y))))
-    )
-  )
+          r (e :renderable)
+          x (epos2pix (m :x))
+          y (epos2pix (m :y))]
+      (q/text (r :char)
+              (- x 4)
+              (+ y 6)))))
 
 (defn draw-world [w]
   (q/text (str (get-cname-ids w :renderable)) 10 390)
-  (draw-objs (get-cnames-ents w (node :render)))
+  (draw-ents (get-cnames-ents w (node :render)))
   )
 
 (defn draw
   []
-  (q/background-float (params :background-color))
-  (q/stroke-weight 10)
-  (q/stroke-float 10)
-  (q/fill (params :foreground-color))
-  (q/text-size (params :big-text-size))
-  (let [w @world]
-    (draw-world w)))
+  (let [w-pix (q/width)
+        h-pix (q/height)
+        w-tiles (tiles w-pix)
+        h-tiles (tiles h-pix)]
+    (q/background-float (ui :background-color))
+
+    (q/stroke-weight 1)
+    (q/stroke-float (ui :ui-color))
+    (doseq [x (range (+ 1 w-tiles))]
+      (q/line (pos2pix x) (pos2pix 0)
+              (pos2pix x) (pos2pix h-tiles)))
+    (doseq [y (range (+ 1 h-tiles))]
+      (q/line (pos2pix 0) (pos2pix y)
+              (pos2pix w-tiles) (pos2pix y)))
+
+    (q/fill (ui :char-color))
+                                        ;(q/text-size (ui :text-size))
+    (q/text-font (q/state :font-monaco))
+    (let [w @world]
+      (draw-world w))))
 
 (defn key-press []
   (swap! world on-key (q/raw-key)))
@@ -167,6 +212,7 @@
 (defn updating [_]
   (when @running
     (send-off *agent* #'updating))
+
   (swap! world on-tick update-sleep-ms)
   (. Thread (sleep update-sleep-ms))
   nil)
@@ -174,15 +220,19 @@
 ;; start thread for ticks
 (send-off updater updating)
 
-(q/sketch
-  :title "ECS prototype"
-  :size [800 400]
-;  :renderer :opengl
-  :setup setup
-  :draw draw
-  :key-typed key-press
-  :mouse-pressed #(mouse :down)
-  :on-close (fn [] (do
-                     (reset! running false)
-                     )))
+(defn setup []
+  (q/set-state! :font-monaco (q/create-font "Monaco" (ui :text-size) true))
+  (q/smooth)
+  (q/frame-rate 60))
 
+(q/sketch
+ :title "ECS prototype"
+ :size [800 400]
+                                        ;  :renderer :opengl
+ :setup setup
+ :draw draw
+ :key-typed key-press
+ :mouse-pressed #(mouse :down)
+ :on-close (fn [] (do
+                    (reset! running false)
+                    )))

@@ -1,6 +1,6 @@
 (ns cg.ecs
   (:use [clojure.pprint :only [pprint]])
-  (:use [clojure.set :only [intersection]])
+  (:use [clojure.set :only [intersection difference]])
   (:use [cg.queue]))
 
 (defrecord Ecs [id etoc ctoe])
@@ -129,17 +129,49 @@
   [ecs id cname k f & args]
   (apply update-in ecs [:etoc id cname k] f args))
 
+(defn removed-added [a b]
+  (let [a (set a)
+        b (set b)]
+    [(difference a b)
+     (difference b a)]))
+
+(defn ctoe-rem-id-cnames
+  [ctoe id cnames]
+  (reduce #(dissoc-in %1 [%2] id) ctoe cnames))
+
+(defn ctoe-add-id-cnames
+  [ctoe id cnames]
+  (reduce #(assoc-in %1 [%2 id] 1) ctoe cnames))
+
 (defn update-entity
   "Takes entity by id and calls function f with entity and args as parameters.
   Returned entity is updated into ECS"
   [ecs id f & args]
   (let [e (get-e ecs id)
-        r (apply f e args)]
+        r (apply f e args)
+        ke (keys e)
+        kr (keys r)]
                                         ; TODO add updating of :CTOE
                                         ; hashmap after entity update    
-    (when (not (= e r)) 
-      (prn (keys e) '-> (keys r)))
-    (assoc-in ecs [:etoc id] r)))
+    (if (not (= ke kr))
+      (let [[removed added] (removed-added ke kr)]
+        (prn ke '-> kr 'rem removed 'add added)
+        (-> ecs 
+            (assoc :ctoe (-> (:ctoe ecs)
+                                 (ctoe-rem-id-cnames id removed)
+                                 (ctoe-add-id-cnames id added)))
+            (assoc-in [:etoc id] r)))
+      (assoc-in ecs [:etoc id] r))))
+
+(defn update-entities
+  [ecs ids f & args]
+  (reduce #(apply update-entity %1 %2 f args) ecs ids))
+
+(defn update-comps
+  "update entities in ECS which has comp-names with function entity-update-fn"
+  [ecs comp-names entity-update-fn & args]
+  (let [ids (get-cnames-ids ecs comp-names)]
+    (apply update-entities ecs ids entity-update-fn args)))
 
 (defn set-val
   "sets value in the component"
@@ -178,6 +210,7 @@
      (hash-map ::name ~(keyword (clojure.core/name name)) ~@r)))
 
 ;;;; Systems
+
 
 
 ;;;; Util
