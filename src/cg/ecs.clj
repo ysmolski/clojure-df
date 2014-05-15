@@ -151,8 +151,6 @@
         r (apply f e args)
         ke (keys e)
         kr (keys r)]
-                                        ; TODO add updating of :CTOE
-                                        ; hashmap after entity update    
     (if (not (= ke kr))
       (let [[removed added] (removed-added ke kr)]
         (prn ke '-> kr 'rem removed 'add added)

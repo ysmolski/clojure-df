@@ -9,6 +9,7 @@
    :text-size 15
    :char-color 200
    :ui-color 40
+   :wall-color 50
    :background-color 25
    :foreground-color 200
    })
@@ -25,14 +26,31 @@
                  (controllable)
                  (renderable "D")
                  (path [[12 12]
-                        [5 5]])
-                 (destination 0 0)]
+                        [5 5]])]
             :beast [(health)
                     (position 15 15)
-                                        ;                    (velocity 0 0)
                     (renderable "b")]})
 
 (def world (atom (load-scene (new-ecs) scene)))
+
+;;; MAP management
+
+(defrecord Cell [passable ids])
+
+(def cell-types [:floor :wall])
+
+(defn generate-site [x-size y-size]
+  (apply vector (map (fn [_] (apply vector (map (fn [_] (atom (Cell. (< (rand) 0.7) {})))
+                                                (range y-size))))
+                     (range x-size))))
+
+(defn place [site x y]
+  (-> site (nth x) (nth y)))
+
+(def site-size 200)
+(def site (generate-site site-size site-size))
+
+;;; create view port
 
 ;;; Systems
 
@@ -89,7 +107,7 @@
           (-> e
               (update-in [:path :p] pop)
               (set-c (velocity 0 0))
-              (rem-c :destination))
+              (set-c (destination 0 0)))
           (set-c e (velocity vx vy)))))))
 
 (defn system-guide [w time]
@@ -171,19 +189,35 @@
               (- x 4)
               (+ y 6)))))
 
+(defn draw-tile-bg [passable x y]
+  (when (not passable)
+    (q/rect (pos2pix x)
+            (pos2pix y)
+            (ui :tile-size)
+            (ui :tile-size)))
+  )
+
+(defn draw-site []
+  (doseq [x (range (tiles (q/width)))
+          y (range (tiles (q/height)))]
+    (let [c @(place site x y)]
+      (draw-tile-bg (:passable c) x y))))
+
 (defn draw-world [w]
   (q/text (str (get-cname-ids w :renderable)) 10 390)
+  (q/fill (ui :wall-color))
+  (draw-site)
+  (q/fill (ui :char-color))
   (draw-ents (get-cnames-ents w (node :render)))
   )
 
 (defn draw
   []
-  (let [w-pix (q/width)
-        h-pix (q/height)
-        w-tiles (tiles w-pix)
-        h-tiles (tiles h-pix)]
+  (let [w-tiles (tiles (q/width))
+        h-tiles (tiles (q/height))]
     (q/background-float (ui :background-color))
 
+    ;; draw grid
     (q/stroke-weight 1)
     (q/stroke-float (ui :ui-color))
     (doseq [x (range (+ 1 w-tiles))]
@@ -193,8 +227,7 @@
       (q/line (pos2pix 0) (pos2pix y)
               (pos2pix w-tiles) (pos2pix y)))
 
-    (q/fill (ui :char-color))
-                                        ;(q/text-size (ui :text-size))
+    ;; (q/text-size (ui :text-size))
     (q/text-font (q/state :font-monaco))
     (let [w @world]
       (draw-world w))))
@@ -227,7 +260,7 @@
 
 (q/sketch
  :title "ECS prototype"
- :size [800 400]
+ :size [800 800]
                                         ;  :renderer :opengl
  :setup setup
  :draw draw
