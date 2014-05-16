@@ -1,9 +1,9 @@
 (ns cg.astar)
 
 (def world [[1 1 1 1 1]
-            [5 5 5 5 1]
+            [9 9 9 9 1]
             [1 1 1 1 1]
-            [1 5 5 5 5]
+            [1 9 9 9 9]
             [1 1 1 1 1]])
 
 (def dirs [[-1 0]
@@ -73,12 +73,12 @@
                    (into rest-work-todo
                          (map (fn [w]
                                 (let [[x y] w]
-                                  [(total-cost newcost step-est from-xy to-xy) w]))
+                                  [(total-cost newcost step-est [x y] to-xy) w]))
                               nbr-xys)))))))))
 
-(prn (total-cost 10 5 [0 0] [4 4]))
+(prn "total" (total-cost 10 5 [0 0] [4 4]))
 
-(prn (path 4 world [0 0] [2 2]))
+(prn "path" (path 4 world [0 0] [2 2]))
 
 
 
