@@ -56,12 +56,12 @@
               newcost (path-cost (get-in cell-costs xy)
                                   cheapest-nbr)
               oldcost (:cost (get-in routes xy))]
-          (prn work-item)
-          (prn rest-work-todo)
-          (prn nbr-xys)
-          (prn cheapest-nbr)
-          (prn newcost)
-          (prn oldcost)
+          ;; (prn routes)
+          ;; (prn work-todo)
+          ;; (prn nbr-xys)
+          ;; (prn cheapest-nbr)
+          ;; (prn newcost)
+          ;; (prn oldcost)
           (if (and oldcost (>= newcost oldcost))
             (recur (inc steps)
                    routes
@@ -71,14 +71,9 @@
                              {:cost newcost
                               :xys (conj (:xys cheapest-nbr []) xy)})
                    (into rest-work-todo
-                         (map (fn [w]
-                                (let [[x y] w]
-                                  [(total-cost newcost step-est [x y] to-xy) w]))
+                         (map (fn [[x y]]
+                                [(total-cost newcost step-est [x y] to-xy) [x y]])
                               nbr-xys)))))))))
 
-(prn "total" (total-cost 10 5 [0 0] [4 4]))
-
-(prn "path" (path 4 world [0 0] [2 2]))
-
-
-
+;(prn "total" (total-cost 10 5 [0 0] [4 4]))
+(prn "path" (path 4 world [0 0] [4 4]))
