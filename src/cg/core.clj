@@ -1,11 +1,13 @@
 (ns cg.core
   [:use cg.ecs]
   [:use cg.comps]
+  [:require [cg.site :as s]]
+  [:require [cg.astar :as astar]]
   [:require [quil.core :as q]])
 
 (def ui
   {:window-border 10
-   :tile-size 20
+   :tile-size 19
    :text-size 15
    :char-color 200
    :ui-color 40
@@ -21,12 +23,11 @@
 
 (def scene {:dw [(health)
                  (speed 10)
-                 (position 10 10)
-                 (velocity 0.02 0.02)
+                 (position 1.0 1.0)
+                 (velocity 0.0 0.0)
                  (controllable)
                  (renderable "D")
-                 (path [[12 12]
-                        [5 5]])]
+                 (path [])]
             :beast [(health)
                     (position 15 15)
                     (renderable "b")]})
@@ -35,20 +36,27 @@
 
 ;;; MAP management
 
-(defrecord Cell [passable ids])
+(def site-size 60)
+(def site (s/generate site-size 0.4))
 
-(def cell-types [:floor :wall])
+(s/form! site [1 1] :floor)
+(s/form! site [32 32] :floor)
 
-(defn generate-site [x-size y-size]
-  (apply vector (map (fn [_] (apply vector (map (fn [_] (atom (Cell. (< (rand) 0.7) {})))
-                                                (range y-size))))
-                     (range x-size))))
+;; (s/smooth-list site site-size)
+(s/smooth 1 site site-size)
 
-(defn place [site x y]
-  (-> site (nth x) (nth y)))
+;;; path finding
 
-(def site-size 200)
-(def site (generate-site site-size site-size))
+(defn get-cell-cost [cells xy] 1)
+
+(defn filter-nbr [xy]
+  (s/passable? @(s/place site xy)))
+
+(s/form! site [1 1] :floor)
+(s/form! site [32 32] :floor)
+
+;;; just for test
+;; (time (prn "path" (astar/path [1 1] [32 32] 1 site get-cell-cost filter-nbr)))
 
 ;;; create view port
 
@@ -136,10 +144,20 @@
         (system-guide time)
         )))
 
-(defn path-add [e x y]
-  (let [e2 (update-in e [:path :p] conj [x y])]
-    (prn (e2 :path) (e2 :destination))
-    e2))
+(defn path-find-add [e x y]
+  (let [ex (Math/round (-> e :position :x))
+        ey (Math/round (-> e :position :y))
+        x (Math/round x)
+        y (Math/round y)
+        path (astar/path [ex ey] [x y] 5 site get-cell-cost filter-nbr)
+        e2 (update-in e [:path :p] conj [x y])]
+    (if (empty? (path :xys))
+      (do
+        (prn "no path to" x y path)
+        e)
+      (do
+        (prn "path found" ex ey path)
+        (update-in e [:path :p] into (path :xys))))))
 
 (defn on-mouse
   [w x y e]
@@ -154,7 +172,7 @@
              (>= y 0)
              (< x w-tiles)
              (< y h-tiles))
-      (update-entities w ids path-add x y)
+      (update-entities w ids path-find-add x y)
       w)))
 
 ;;; RENDERING STUFF
@@ -200,8 +218,8 @@
 (defn draw-site []
   (doseq [x (range (tiles (q/width)))
           y (range (tiles (q/height)))]
-    (let [c @(place site x y)]
-      (draw-tile-bg (:passable c) x y))))
+    (let [c @(s/place site [x y])]
+      (draw-tile-bg (s/passable? c) x y))))
 
 (defn draw-world [w]
   (q/text (str (get-cname-ids w :renderable)) 10 390)
@@ -260,7 +278,7 @@
 
 (q/sketch
  :title "ECS prototype"
- :size [800 800]
+ :size [700 700]
                                         ;  :renderer :opengl
  :setup setup
  :draw draw

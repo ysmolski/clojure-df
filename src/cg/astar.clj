@@ -1,10 +1,10 @@
 (ns cg.astar)
 
-(def world [[1 1 1 1 1]
-            [9 9 9 9 1]
-            [1 1 1 1 1]
-            [1 9 9 9 9]
-            [1 1 1 1 1]])
+(def world [[ 1  1  1  1  1]
+            [99 99 99 99  1]
+            [ 1  1  1  1  1]
+            [ 1 99 99 99 99]
+            [ 1  1  1  1  1]])
 
 (def dirs [[-1 0]
            [-1 1]
@@ -41,39 +41,44 @@
               (if (> (f min) (f this)) this min))
             coll)))
 
-(defn path [step-est cell-costs from-xy to-xy]
+(defn path [from-xy to-xy step-est cell-costs get-cell-cost filter-neighbor]
   (let [size (count cell-costs)]
     (loop [steps 0
            routes (vec (replicate size (vec (replicate size nil))))
            work-todo (sorted-set [0 from-xy])]
       (if (empty? work-todo)
-        [(peek (peek routes)) :steps steps]
+        {:xys []
+         :steps steps}
         (let [[_ xy :as work-item] (first work-todo)
               rest-work-todo (disj work-todo work-item)
-              nbr-xys (neighbors size xy)
+              nbr-xys (filter filter-neighbor (neighbors size xy))
               cheapest-nbr (min-by :cost
                                    (keep #(get-in routes %) nbr-xys))
-              newcost (path-cost (get-in cell-costs xy)
-                                  cheapest-nbr)
+              newcost (path-cost (get-cell-cost cell-costs xy)
+                                 cheapest-nbr)
               oldcost (:cost (get-in routes xy))]
-          ;; (prn routes)
-          ;; (prn work-todo)
-          ;; (prn nbr-xys)
-          ;; (prn cheapest-nbr)
-          ;; (prn newcost)
-          ;; (prn oldcost)
-          (if (and oldcost (>= newcost oldcost))
-            (recur (inc steps)
-                   routes
-                   rest-work-todo)
-            (recur (inc steps)
-                   (assoc-in routes xy
-                             {:cost newcost
-                              :xys (conj (:xys cheapest-nbr []) xy)})
-                   (into rest-work-todo
-                         (map (fn [[x y]]
-                                [(total-cost newcost step-est [x y] to-xy) [x y]])
-                              nbr-xys)))))))))
+          (if (= xy to-xy)
+            {:cost newcost
+             :xys (conj (:xys cheapest-nbr []) xy)
+             :steps steps} 
+            (if (and oldcost (>= newcost oldcost))
+              (recur (inc steps)
+                     routes
+                     rest-work-todo)
+              (recur (inc steps)
+                     (assoc-in routes xy
+                               {:cost newcost
+                                :xys (conj (:xys cheapest-nbr []) xy)})
+                     (into rest-work-todo
+                           (map (fn [[x y]]
+                                  [(total-cost newcost step-est [x y] to-xy) [x y]])
+                                nbr-xys))))))))))
 
-;(prn "total" (total-cost 10 5 [0 0] [4 4]))
-(prn "path" (path 4 world [0 0] [4 4]))
+(defn get-cell-cost [cells xy]
+  (get-in cells xy))
+
+(defn filter-neighbor [nbr]
+  true)
+
+;; (prn "total" (total-cost 10 5 [0 0] [4 4]))
+;; (time (prn "path" (path [0 0] [4 4] 5 world get-cell-cost filter-neighbor))) 
