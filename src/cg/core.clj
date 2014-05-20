@@ -24,10 +24,10 @@
 (def scene {:dw [(health)
                  (speed 10)
                  (position 1.0 1.0)
-                 (velocity 0.0 0.0)
                  (controllable)
                  (renderable "D")
-                 (path [])]
+                 ;(path [])
+                 ]
             :beast [(health)
                     (position 15 15)
                     (renderable "b")]})
@@ -105,17 +105,17 @@
 (defn guide
   "calculates velocity based on position, destination and speed"
   [e time]
-  (let [d (peek (-> e :path :p))]
+  (let [points (-> e :path :p)
+        d (peek points)]
     (if (nil? d)
-      e
+      (rem-c e :path)
       (let [p (e :position)
             s (-> e :speed :s)
             [vx vy] (project-speed (p :x) (p :y) (d 0) (d 1) s)]
         (if (= vx 0)
           (-> e
               (update-in [:path :p] pop)
-              (set-c (velocity 0 0))
-              (set-c (destination 0 0)))
+              (rem-c :velocity))
           (set-c e (velocity vx vy)))))))
 
 (defn system-guide [w time]
@@ -149,19 +149,15 @@
         ey (Math/round (-> e :position :y))
         x (Math/round x)
         y (Math/round y)
-        path (astar/path [ex ey] [x y] 5 site get-cell-cost filter-nbr)
-        e2 (update-in e [:path :p] conj [x y])]
-    (if (empty? (path :xys))
-      (do
-        (prn "no path to" x y path)
-        e)
-      (do
-        (prn "path found" ex ey path)
-        (update-in e [:path :p] into (path :xys))))))
+        new-path (astar/path [ex ey] [x y] 5 site get-cell-cost filter-nbr)]
+    (prn "path" x y ex ey new-path)
+    (if (empty? (new-path :xys))
+      e
+      (set-c e (path (new-path :xys))))))
 
 (defn on-mouse
   [w x y e]
-  (prn x y e)
+  ;; (prn x y e)
   (let [ids (get-cnames-ids w [:controllable])
         x (pos-middle (pix2pos x))
         y (pos-middle (pix2pos y))
