@@ -7,7 +7,7 @@
 
 (def ui
   {:window-border 10
-   :tile-size 19
+   :tile-size 17
    :text-size 15
    :char-color 200
    :ui-color 40
@@ -23,7 +23,7 @@
 
 (def scene {:dw [(health)
                  (speed 10)
-                 (position 1.0 1.0)
+                 (position 32.0 32.0)
                  (controllable)
                  (renderable "D")
                  ;(path [])
@@ -36,14 +36,8 @@
 
 ;;; MAP management
 
-(def site-size 60)
+(def site-size 200)
 (def site (s/generate site-size 0.4))
-
-(s/form! site [1 1] :floor)
-(s/form! site [32 32] :floor)
-
-;; (s/smooth-list site site-size)
-(s/smooth 1 site site-size)
 
 ;;; path finding
 
@@ -52,7 +46,6 @@
 (defn filter-nbr [xy]
   (s/passable? @(s/place site xy)))
 
-(s/form! site [1 1] :floor)
 (s/form! site [32 32] :floor)
 
 ;;; just for test
@@ -115,7 +108,7 @@
         (if (= vx 0)
           (-> e
               (update-in [:path :p] pop)
-              (rem-c :velocity))
+              (set-c (velocity 0.0 0.0)))
           (set-c e (velocity vx vy)))))))
 
 (defn system-guide [w time]
@@ -274,7 +267,7 @@
 
 (q/sketch
  :title "ECS prototype"
- :size [700 700]
+ :size [1000 700]
                                         ;  :renderer :opengl
  :setup setup
  :draw draw

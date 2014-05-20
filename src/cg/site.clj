@@ -12,11 +12,6 @@
     :floor
     :wall))
 
-(defn generate [size wall-probability]
-  (apply vector (map (fn [_] (apply vector (map (fn [_] (atom (Cell. (gen-wall wall-probability) {})))
-                                                (range size))))
-                     (range size))))
-
 (defn place [site [x y]]
   (-> site (nth x) (nth y)))
 
@@ -25,6 +20,13 @@
 
 (defn form! [site xy form]
   (swap! (place site xy) assoc :form form))
+
+(defn add-borders [site size]
+  (doseq [x (range size)]
+    (form! site [x 0] :wall)
+    (form! site [0 x] :wall)
+    (form! site [x (dec size)] :wall)
+    (form! site [x (dec size)] :wall)))
 
 (def cut-low 2)
 (def cut-high 5)
@@ -38,13 +40,25 @@
                                    ]
                                (if-not (passable? @(place site [(+ x dx) (+ y dy)])) 1 0)))
           old-form (:form @(place site [x y]))
-          new-form (cond 
-                    (>= occupied cut-high) :wall
-                    (<= occupied cut-low) :floor     
-                    :else old-form)]
+          new-form (if (= old-form :wall)
+                     (if (< occupied 3)
+                       :floor
+                       :wall)
+                     (if (> occupied 4)
+                       :wall
+                       :floor))]
       [x y new-form])))
 
 (defn smooth [times site size]
   (dotimes [n times]
     (doseq [[x y form] (smooth-list site size)]
       (form! site [x y] form))))
+
+(defn generate [size wall-probability]
+  (let [site (apply vector (map (fn [_] (apply vector (map (fn [_] (atom (Cell. (gen-wall wall-probability) {})))
+                                                          (range size))))
+                                (range size)))]
+    (do
+      (add-borders site size)
+      (smooth 2 site size)
+      site)))
