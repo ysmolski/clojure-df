@@ -53,6 +53,10 @@
 
 ;;; create view port
 
+(defn round-coords [e comp]
+  [(Math/round (-> e comp :x))
+   (Math/round (-> e comp :y))])
+
 ;;; Systems
 
 
@@ -114,6 +118,22 @@
 (defn system-guide [w time]
   (update-comps w (node :guide) guide time))
 
+(defn path-find-add [e time]
+  (let [[ex ey] (round-coords e :position)
+        [x y] (round-coords e :destination)
+        new-path (astar/path [ex ey] [x y] 5 site get-cell-cost filter-nbr)
+        ;new-path {:xys [[x y]]}
+        ]
+    (prn "path" x y ex ey new-path)
+    (if (empty? (new-path :xys))
+      (rem-c e :destination)
+      (-> e
+          (set-c (path (new-path :xys)))
+          (rem-c :destination)))))
+
+(defn system-path-find [w time]
+  (update-comps w (node :path-find) path-find-add time))
+
 ;;; Path Finding
 ;; (defn system-path-finding [w time]
 ;;   (let [ids (get-cnames-ids w (node :guide))]
@@ -135,18 +155,8 @@
         (update-val 1 :health :count inc)
         (system-move time)
         (system-guide time)
+        (system-path-find time)
         )))
-
-(defn path-find-add [e x y]
-  (let [ex (Math/round (-> e :position :x))
-        ey (Math/round (-> e :position :y))
-        x (Math/round x)
-        y (Math/round y)
-        new-path (astar/path [ex ey] [x y] 5 site get-cell-cost filter-nbr)]
-    (prn "path" x y ex ey new-path)
-    (if (empty? (new-path :xys))
-      e
-      (set-c e (path (new-path :xys))))))
 
 (defn on-mouse
   [w x y e]
@@ -161,7 +171,7 @@
              (>= y 0)
              (< x w-tiles)
              (< y h-tiles))
-      (update-entities w ids path-find-add x y)
+      (update-entities w ids set-c (destination x y))
       w)))
 
 ;;; RENDERING STUFF
@@ -211,7 +221,7 @@
       (draw-tile-bg (s/passable? c) x y))))
 
 (defn draw-world [w]
-  (q/text (str (get-cname-ids w :renderable)) 10 390)
+  ;(q/text (str (get-cname-ids w :renderable)) 10 390)
   (q/fill (ui :wall-color))
   (draw-site)
   (q/fill (ui :char-color))
@@ -252,9 +262,12 @@
 (defn updating [_]
   (when @running
     (send-off *agent* #'updating))
-
-  (swap! world on-tick update-sleep-ms)
-  (. Thread (sleep update-sleep-ms))
+  (let [start (. System (nanoTime))
+        new-world (swap! world on-tick update-sleep-ms)
+        elapsed (/ (double (- (. System (nanoTime)) start)) 1000000.0)]
+    (if (> elapsed update-sleep-ms)
+      (prn "elapsed:" elapsed)
+      (. Thread (sleep (- update-sleep-ms elapsed)))))
   nil)
 
 ;; start thread for ticks
@@ -263,7 +276,7 @@
 (defn setup []
   (q/set-state! :font-monaco (q/create-font "Monaco" (ui :text-size) true))
   (q/smooth)
-  (q/frame-rate 60))
+  (q/frame-rate 30))
 
 (q/sketch
  :title "ECS prototype"
@@ -271,7 +284,7 @@
                                         ;  :renderer :opengl
  :setup setup
  :draw draw
- :key-typed key-press
+; :key-typed key-press
  :mouse-pressed #(mouse :down)
  :on-close (fn [] (do
                     (reset! running false)

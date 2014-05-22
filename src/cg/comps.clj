@@ -4,6 +4,7 @@
 
 (def node {:move [:position :velocity]
            :guide [:position :path :speed]
+           :path-find [:position :destination]
            :render [:position :renderable]})
 
 (defcomp health []
