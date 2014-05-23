@@ -18,7 +18,7 @@
 
 (declare pos2pix pix2pos epos2pix pos-middle tiles)
 
-(def update-sleep-ms 20)
+(def update-sleep-ms 40)
 (def running (atom true))
 
 (def scene {:dw [(health)
@@ -41,7 +41,7 @@
 
 ;;; path finding
 
-(defn get-cell-cost [cells xy] 1)
+(defn get-cell-cost [cells xy] 10)
 
 (defn filter-nbr [xy]
   (s/passable? @(s/place site xy)))
@@ -90,7 +90,7 @@
   (let [dx (- x2 x1)
         dy (- y2 y1)
         dist (distance dx dy)]
-    (if (< dist 0.1)
+    (if (< dist 0.2)
       [0 0]
       (let [relation (/ (float speed)
                         dist)
@@ -103,12 +103,12 @@
   "calculates velocity based on position, destination and speed"
   [e time]
   (let [points (-> e :path :p)
-        d (peek points)]
-    (if (nil? d)
+        next-point (peek points)]
+    (if (nil? next-point)
       (rem-c e :path)
       (let [p (e :position)
             s (-> e :speed :s)
-            [vx vy] (project-speed (p :x) (p :y) (d 0) (d 1) s)]
+            [vx vy] (project-speed (p :x) (p :y) (next-point 0) (next-point 1) s)]
         (if (= vx 0)
           (-> e
               (update-in [:path :p] pop)
@@ -121,7 +121,7 @@
 (defn path-find-add [e time]
   (let [[ex ey] (round-coords e :position)
         [x y] (round-coords e :destination)
-        new-path (astar/path [ex ey] [x y] 5 site get-cell-cost filter-nbr)
+        new-path (astar/path [ex ey] [x y] 11 site get-cell-cost filter-nbr)
         ;new-path {:xys [[x y]]}
         ]
     (prn "path" x y ex ey new-path)

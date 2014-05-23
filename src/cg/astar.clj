@@ -22,16 +22,29 @@
                (every? #(< -1 % size) new-xy))
              (map #(map + xy %) deltas))))
 
-(defn estimate-cost [step-cost-est [from-x from-y] [to-x to-y]]
+(defn estimate-cost
+  "H function"
+  [step-cost-est [from-x from-y] [to-x to-y]]
   (* step-cost-est
      (+ (Math/abs (- to-x from-x))
         (Math/abs (- to-y from-y)))))
 
-(defn path-cost [node-cost cheapest-nbr]
-  (+ node-cost
-     (:cost cheapest-nbr 0)))
+(defn path-cost
+  "G function"
+  [node-cost [x y] cheapest-nbr]
+  (let [coef (if-let [[from-x from-y] (peek (:xys cheapest-nbr []))]
+               (if (and (not= x from-x)
+                        (not= y from-y))
+                 1.4
+                 1)
+               1)]
+    ;; (prn coef x y cheapest-nbr)
+    (+ (int (* coef node-cost))
+       (:cost cheapest-nbr 0))))
 
-(defn total-cost [newcost step-cost-est from to]
+(defn total-cost
+  "G + H function"
+  [newcost step-cost-est from to]
   (+ newcost
      (estimate-cost step-cost-est from to)))
 
@@ -41,13 +54,22 @@
               (if (> (f min) (f this)) this min))
             coll)))
 
-(defn path [from-xy to-xy step-est cell-costs get-cell-cost filter-neighbor]
+;;; this algorithm can be improved:
+;;; * introducing timeout for an execution of the algo
+;;; * returning the best estimation for getting to not possible destination
+
+(defn path
+  "a* path finding"
+  [from-xy to-xy step-est cell-costs get-cell-cost filter-neighbor]
   (let [size (count cell-costs)]
     (loop [steps 0
            routes (vec (replicate size (vec (replicate size nil))))
            work-todo (sorted-set [0 from-xy])]
       (if (empty? work-todo)
         {:xys []
+         ;; :routes (min-by :cost (for [rx (range size)
+                                 ;;     ry (range size)]
+                                 ;; (get-in routes [rx ry])))
          :steps steps}
         (let [[_ xy :as work-item] (first work-todo)
               rest-work-todo (disj work-todo work-item)
@@ -55,6 +77,7 @@
               cheapest-nbr (min-by :cost
                                    (keep #(get-in routes %) nbr-xys))
               newcost (path-cost (get-cell-cost cell-costs xy)
+                                 xy
                                  cheapest-nbr)
               oldcost (:cost (get-in routes xy))]
           (if (= xy to-xy)
