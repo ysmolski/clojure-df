@@ -143,6 +143,9 @@
   [ctoe id cnames]
   (reduce #(assoc-in %1 [%2 id] 1) ctoe cnames))
 
+(defn- update-e [ecs id entity]
+  (assoc-in ecs [:etoc id] entity))
+
 (defn update-entity
   "Takes entity by id and calls function f with entity and args as parameters.
   Returned entity is updated into ECS"
@@ -157,10 +160,10 @@
         ;; (prn ke '-> kr 'rem removed 'add added)
         (-> ecs 
             (assoc :ctoe (-> (:ctoe ecs)
-                                 (ctoe-rem-id-cnames id removed)
-                                 (ctoe-add-id-cnames id added)))
-            (assoc-in [:etoc id] r)))
-      (assoc-in ecs [:etoc id] r))))
+                             (ctoe-rem-id-cnames id removed)
+                             (ctoe-add-id-cnames id added)))
+            (update-e id r)))
+      (update-e ecs id r))))
 
 (defn update-entities
   [ecs ids f & args]

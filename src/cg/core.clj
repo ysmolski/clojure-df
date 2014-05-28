@@ -106,6 +106,10 @@
       b
       n)))
 
+(defn bordering? [[x1 y1] [x2 y2]]
+  (and (>= 1 (Math/abs (- x1 x2)))
+       (>= 1 (Math/abs (- y1 y2)))))
+
 ;;; Systems
 
 
@@ -226,9 +230,10 @@
       res
       w)))
 
-(defn near? [[x1 y1] [x2 y2]]
-  (and (>= 1 (Math/abs (- x1 x2)))
-       (>= 1 (Math/abs (- y1 y2)))))
+(defn add-with-prob [w probability f & args]
+  (if (< (rand) probability)
+    (apply f w args)
+    w))
 
 (defn try-job
   "takes world and id of worker who has a job-dig and tries to perform the job.
@@ -240,7 +245,7 @@
         {job-id :id
          progress :progress} (-> e job-kind)]
     ;; (prn :job-do job-kind e-xy job-xy progress)
-    (if (near? e-xy job-xy)
+    (if (bordering? e-xy job-xy)
       (if (< progress 0)
         (do
           (s/dig! site job-xy)
@@ -248,7 +253,7 @@
               (update-entity id rem-c job-kind)
               (update-entity id set-c (job-ready))
               (rem-e job-id)
-              (new-stone (job-xy 0) (job-xy 1))))
+              (add-with-prob 0.5 new-stone (job-xy 0) (job-xy 1))))
         (update-entity w id #(update-in %1 [job-kind :progress] - time)))
       w)))
 
