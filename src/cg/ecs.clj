@@ -154,7 +154,7 @@
     ;; (prn id f args r)
     (if (not (= ke kr))
       (let [[removed added] (removed-added ke kr)]
-        (prn ke '-> kr 'rem removed 'add added)
+        ;; (prn ke '-> kr 'rem removed 'add added)
         (-> ecs 
             (assoc :ctoe (-> (:ctoe ecs)
                                  (ctoe-rem-id-cnames id removed)
