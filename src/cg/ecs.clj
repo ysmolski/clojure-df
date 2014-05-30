@@ -1,12 +1,13 @@
 (ns cg.ecs
   (:use [clojure.pprint :only [pprint]])
   (:use [clojure.set :only [intersection difference]])
-  (:use [cg.queue]))
+  (:use [cg.queue])
+  (:require [cg.site :as site]))
 
-(defrecord Ecs [id etoc ctoe])
+(defrecord Ecs [id etoc ctoe map map-size])
 
-(defn new-ecs []
-  (Ecs. 0 {} {}))
+(defn new-ecs [map-size]
+  (Ecs. 0 {} {} (site/generate map-size site/new-cell) map-size))
 
 ;; (defn new-ecs-ref []
 ;;   (ref (new-ecs)))
@@ -157,9 +158,9 @@
         kr (keys r)]
     ;; (prn id f args r)
     ;; TODO: add special hook to update site cells :ids by reading positions
-    (if-let [pos (e :position)]
-      (let [new-pos (r :position)]
-        (prn :update-e id f args pos new-pos)))
+    ;; (if-let [pos (e :position)]
+    ;;   (let [new-pos (r :position)]
+    ;;     (prn :update-e id f args pos new-pos)))
     (if (not= ke kr)
       (let [[removed added] (removed-added ke kr)]
         ;; (prn ke '-> kr 'rem removed 'add added)
@@ -223,7 +224,7 @@
 ;;;; Util
 
 
-; load the entity into ECS
+;;; load the entity into ECS
 
 (defn load-entity
   "Loads into ECS an Entity of `ename` and vector of components"
@@ -232,7 +233,7 @@
         id (last-id s)]
     (reduce #(set-c %1 id %2) s comps)))
 
-; load hash-map of entities into ECS
+;;; load hash-map of entities into ECS
 
 (defn load-scene
   "Loads into ECS a scene, which is hashmap, where keys are names of entities and values are vectors containing components"
@@ -241,6 +242,22 @@
             (load-entity ecs ename comps))
           ecs
           (seq scene)))
+
+;;; MAP operations
+;;; --------------------------------------------------------------------------------
+
+(defn place [ecs [x y]]
+  (get-in ecs [:map x y]))
+
+(defn set-form [ecs [x y] kind]
+  (assoc-in ecs [:map x y :form] kind))
+
+(defn map-dig [ecs xy]
+  (set-form ecs xy :floor))
+
+
+
+
 
 ;;;; -------------------------
 

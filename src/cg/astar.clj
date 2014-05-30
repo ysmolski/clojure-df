@@ -67,7 +67,7 @@
          :steps steps}
         (let [[_ xy :as work-item] (first work-todo)
               rest-work-todo (disj work-todo work-item)
-              nbr-xys (filter filter-neighbor (neighbors size xy))
+              nbr-xys (filter (partial filter-neighbor cell-costs) (neighbors size xy))
               cheapest-nbr (min-by :cost
                                    (keep #(get-in routes %) nbr-xys))
               newcost (path-cost (get-cell-cost cell-costs xy)
@@ -94,7 +94,7 @@
 (defn get-cell-cost [cells xy]
   (get-in cells xy))
 
-(defn filter-neighbor [nbr]
+(defn filter-neighbor [cells xy]
   true)
 
 ;; (prn "total" (total-cost 10 5 [0 0] [4 4]))

@@ -43,12 +43,11 @@
                          (position x y)
                          (renderable "✶")]))
 
-(def world (atom (load-scene (new-ecs) scene)))
+(def map-size 100)
+;; (def site (s/generate site-size 0.4))
 
-;;; MAP management
+;; (def world (atom (load-scene (new-ecs map-size) scene)))
 
-(def site-size 100)
-(def site (s/generate site-size 0.4))
 
 ;;; State
 
@@ -56,7 +55,8 @@
 ;;; mouse-actions - what does action of mouse have effect on. possible
 ;;; values: :move-to :dig :build-wall
 
-(def game {:world (atom (load-scene (new-ecs) scene))
+(def game {:world (atom (load-scene (new-ecs map-size)
+                                    scene))
            :viewport (atom [0 0])
            :paused (atom false)
            :mouse-action (atom :move-to)
@@ -66,10 +66,10 @@
 
 (defn get-cell-cost [cells xy] 10)
 
-(defn filter-nbr [xy]
-  (s/passable? @(s/place site xy)))
+(defn filter-nbr [cells xy]
+  (s/passable? (s/place cells xy)))
 
-(s/form! site [32 32] :floor)
+;; (s/form! site [32 32] :floor)
 
 ;;; just for test
 ;; (time (prn "path" (astar/path [1 1] [32 32] 1 site get-cell-cost filter-nbr)))
@@ -118,9 +118,6 @@
         t-norm (/ time 1000)
         dx (* (v :x) t-norm)
         dy (* (v :y) t-norm)]
-    ;; (if (and (zero? dx)
-    ;;          (zero? dy))
-    ;;   (rem-c e :velocity))
     (-> e
         (update-in [:position :x] + dx)
         (update-in [:position :y] + dy))))
@@ -176,10 +173,10 @@
 (defn system-guide [w time]
   (update-comps w (node :guide) guide time))
 
-(defn path-find-add [e time]
+(defn path-find-add [e time mp]
   (let [[ex ey] (round-coords e :position)
         [x y] (round-coords e :destination)
-        new-path (astar/path [ex ey] [x y] 11 site get-cell-cost filter-nbr)
+        new-path (astar/path [ex ey] [x y] 11 mp get-cell-cost filter-nbr)
         ;new-path {:xys [[x y]]}
         ]
     (prn "path" x y ex ey new-path)
@@ -190,7 +187,7 @@
           (rem-c :destination)))))
 
 (defn system-path-find [w time]
-  (update-comps w (node :path-find) path-find-add time))
+  (update-comps w (node :path-find) path-find-add time (:map w)))
 
 
 
@@ -202,7 +199,7 @@
     (let [id (first ids)
           target (get-e w id)
           [tx ty] (round-coords target :position)]
-      (let [free-nbrs (filter filter-nbr (astar/neighbors site-size [tx ty]))]
+      (let [free-nbrs (filter (partial filter-nbr (:map w)) (astar/neighbors map-size [tx ty]))]
         (if (empty? free-nbrs)
           (recur w (rest ids) entity)
           [id (first free-nbrs) [tx ty]])))))
@@ -253,8 +250,8 @@
     (if (bordering? e-xy job-xy)
       (if (neg? progress)
         (do
-          (s/dig! site job-xy)
           (-> w
+              (map-dig job-xy)
               (update-entity id rem-c job-kind)
               (update-entity id set-c (job-ready))
               (rem-e job-id)
@@ -276,8 +273,8 @@
   [[x y] [dx dy]]
   (let [w (vp-width)
         h (vp-height)]
-    [(bound (- site-size w) (+ x dx))
-     (bound (- site-size h) (+ y dy))]))
+    [(bound (- map-size w) (+ x dx))
+     (bound (- map-size h) (+ y dy))]))
 
 (def key-to-scroll {\w [0 -1]
                     \s [0 1]
@@ -304,7 +301,7 @@
 (defmulti on-mouse-designate (fn [_ action _ _] action))
 
 (defmethod on-mouse-designate :dig [w action x y]
-  (if (= :diggable (:form @(s/place site [x y])))
+  (if (s/diggable? (place w [(int x) (int y)]))
     (new-job w :dig x y)
     w))
 
@@ -332,14 +329,13 @@
 (defn on-tick
   "Handles ticks of the world, delta is the time passes since last tick"
   [w time]
-  (do
-    (-> w
-        (system-move time)
-        (system-guide time)
-        (system-path-find time)
-        (system-assign-jobs time)
-        (system-dig time)
-        )))
+  (-> w
+      (system-move time)
+      (system-guide time)
+      (system-path-find time)
+      (system-assign-jobs time)
+      (system-dig time)
+      ))
 
 
 
@@ -383,19 +379,18 @@
     (q/rect (pos2pix x)
             (pos2pix y)
             (ui :tile-size)
-            (ui :tile-size)))
-  )
+            (ui :tile-size))))
 
-(defn draw-site [[vp-x vp-y w h]]
-  (doseq [x (range w)
-          y (range h)]
-    (let [c @(s/place site [(+ vp-x x) (+ vp-y y)])]
-      (draw-tile-bg (s/passable? c) x y))))
+(defn draw-site [w [vp-x vp-y width height]]
+  (doseq [x (range width)
+          y (range height)]
+    (let [cell (place w [(+ vp-x x) (+ vp-y y)])]
+      (draw-tile-bg (s/passable? cell) x y))))
 
 (defn draw-world [w viewport]
   ;(q/text (str (get-cname-ids w :renderable)) 10 390)
   (q/fill (ui :wall-color))
-  (draw-site viewport)
+  (draw-site w viewport)
   (q/fill (ui :char-color))
   (draw-ents viewport (get-cnames-ents w (node :render)))
   )
@@ -426,8 +421,8 @@
     (q/text (str @(game :update-time)) (pos2pix 6) (pos2pix (inc h)))
     (q/text (str @(game :mouse-action)) (pos2pix 9) (pos2pix (inc h)))
     
-    (let [w @(game :world)]
-      (draw-world w viewport))))
+    (let [world @(game :world)]
+      (draw-world world viewport))))
 
 
 
