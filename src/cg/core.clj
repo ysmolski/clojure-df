@@ -118,6 +118,9 @@
         t-norm (/ time 1000)
         dx (* (v :x) t-norm)
         dy (* (v :y) t-norm)]
+    ;; (if (and (zero? dx)
+    ;;          (zero? dy))
+    ;;   (rem-c e :velocity))
     (-> e
         (update-in [:position :x] + dx)
         (update-in [:position :y] + dy))))
@@ -158,11 +161,13 @@
   (let [points (-> e :path :points)
         next-point (peek points)]
     (if (nil? next-point)
-      (rem-c e :path)
+      (-> e
+          (rem-c :velocity)
+          (rem-c :path))
       (let [p (e :position)
             s (-> e :speed :pixsec)
             [vx vy] (project-speed (p :x) (p :y) (next-point 0) (next-point 1) s)]
-        (if (= vx 0)
+        (if (zero? vx)
           (-> e
               (update-in [:path :points] pop)
               (set-c (velocity 0.0 0.0)))
@@ -193,7 +198,7 @@
   "tries to find free cell next to cells specified by ids and return [id [x y]]
    where x,y - coords of found free cell. otherwise returns nil"
   [w ids entity]
-  (when-not (empty? ids)
+  (when (seq ids)
     (let [id (first ids)
           target (get-e w id)
           [tx ty] (round-coords target :position)]
@@ -201,8 +206,6 @@
         (if (empty? free-nbrs)
           (recur w (rest ids) entity)
           [id (first free-nbrs) [tx ty]])))))
-
-;;; TODO: refactor next function
 
 (defn assign-jobs
   [w time]
@@ -212,7 +215,9 @@
                 (empty? jobs))
       (let [worker-id (first ids)
             worker (get-e w worker-id)]
-        ;; find unoccupied neighbors and check if worker can get to them
+        ;; find unoccupied neighbors and check if worker can get to
+        ;; them
+        ;; TODO: check if worker and target coord are connected
         (if-let [[job-id [x y] [tx ty]] (find-reachable w jobs worker)]
           (do
             (prn :job-assigned job-id worker-id tx ty x y)
@@ -243,10 +248,10 @@
         e-xy (round-coords e :position)
         job-xy (coords e job-kind)
         {job-id :id
-         progress :progress} (-> e job-kind)]
+         progress :progress} (job-kind e)]
     ;; (prn :job-do job-kind e-xy job-xy progress)
     (if (bordering? e-xy job-xy)
-      (if (< progress 0)
+      (if (neg? progress)
         (do
           (s/dig! site job-xy)
           (-> w
@@ -285,15 +290,15 @@
   "Handles key presses. Returns new state of the world"
   [w key]
   ;;(set-val w 0 :health :count key)
-  (cond
-   (= \space key) (swap! (game :paused) not)
-   (= \f key) (reset! (game :mouse-action) :dig)
-   (= \g key) (reset! (game :mouse-action) :move-to)
-   (= \b key) (reset! (game :mouse-action) :build-wall)
-   :else (let [delta (map #(* % scroll-amount) (key-to-scroll key [0 0]))]
-           (swap! (game :viewport) bound-viewport delta)
-           ;;(prn delta @(game :viewport))
-           ))
+  (condp = key
+    \space (swap! (game :paused) not)
+    \f (reset! (game :mouse-action) :dig)
+    \g (reset! (game :mouse-action) :move-to)
+    \b (reset! (game :mouse-action) :build-wall)
+    (let [delta (map #(* % scroll-amount) (key-to-scroll key [0 0]))]
+      (swap! (game :viewport) bound-viewport delta)
+      ;;(prn delta @(game :viewport))
+      ))
   w)
 
 (defmulti on-mouse-designate (fn [_ action _ _] action))
@@ -374,7 +379,7 @@
                 (+ (epos2pix y) 6))))))
 
 (defn draw-tile-bg [passable x y]
-  (when (not passable)
+  (when-not passable
     (q/rect (pos2pix x)
             (pos2pix y)
             (ui :tile-size)
@@ -405,10 +410,10 @@
     ;; draw grid
     (q/stroke-weight 1)
     (q/stroke-float (ui :ui-color))
-    (doseq [x (range (+ 1 w))]
+    (doseq [x (range (inc w))]
       (q/line (pos2pix x) (pos2pix 0)
               (pos2pix x) (pos2pix h)))
-    (doseq [y (range (+ 1 h))]
+    (doseq [y (range (inc h))]
       (q/line (pos2pix 0) (pos2pix y)
               (pos2pix w) (pos2pix y)))
 
@@ -440,17 +445,17 @@
 (defn updating [_]
   (when @running
     (send-off *agent* #'updating))
-  (let [start (. System (nanoTime))
+  (let [start (System/nanoTime)
         new-world (if @(game :paused)
                     (game :world)
                     (swap! (game :world) on-tick update-sleep-ms))
-        elapsed (/ (double (- (. System (nanoTime)) start)) 1000000.0)]
+        elapsed (/ (double (- (System/nanoTime) start)) 1000000.0)]
 
     (swap! (game :update-time) averager (/ (float 1000) (max update-sleep-ms elapsed)))
     
     (if (> elapsed update-sleep-ms)
       (prn "elapsed:" elapsed)
-      (. Thread (sleep (- update-sleep-ms elapsed)))))
+      (Thread/sleep (- update-sleep-ms elapsed))))
   nil)
 
 (send-off updater updating)
@@ -481,6 +486,4 @@
  :draw draw
  :key-pressed key-press
  :mouse-pressed #(mouse :down)
- :on-close (fn [] (do
-                    (reset! running false)
-                    )))
+ :on-close (fn [] (reset! running false)))

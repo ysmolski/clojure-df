@@ -39,23 +39,23 @@
     (form! site [x (dec size)] :wall)
     (form! site [(dec size) x] :wall)))
 
-(def cut-low 2)
-(def cut-high 5)
+(def cut-low 3)
+(def cut-high 4)
 
 (defn smooth-list [site size]
-  (for [x (range 1 (- size 1))
-        y (range 1 (- size 1))]
+  (for [x (range 1 (dec size))
+        y (range 1 (dec size))]
     (let [occupied (reduce + (for [dx (range -1 2)
                                    dy (range -1 2)
-                                   :when (not (and (= dx 0) (= dy 0)))
+                                   :when (not (and (zero? dx) (zero? dy)))
                                    ]
                                (if-not (passable? @(place site [(+ x dx) (+ y dy)])) 1 0)))
           old-form (:form @(place site [x y]))
           new-form (if (= old-form :diggable)
-                     (if (< occupied 3)
+                     (if (< occupied cut-low)
                        :floor
                        :diggable)
-                     (if (> occupied 4)
+                     (if (> occupied cut-high)
                        :diggable
                        :floor))]
       [x y new-form])))
@@ -69,7 +69,6 @@
   (let [site (apply vector (map (fn [_] (apply vector (map (fn [_] (atom (Cell. (gen-wall wall-probability) {})))
                                                           (range size))))
                                 (range size)))]
-    (do
-      (add-borders site size)
-      (smooth 2 site size)
-      site)))
+    (add-borders site size)
+    (smooth 2 site size)
+    site))

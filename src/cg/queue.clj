@@ -3,8 +3,7 @@
 ;;; Queues
 
 (defn queue [& args]
-  (-> (clojure.lang.PersistentQueue/EMPTY)
-      (into args)))
+  (into (clojure.lang.PersistentQueue/EMPTY) args))
 
 (defmethod print-method clojure.lang.PersistentQueue
   [o, w]

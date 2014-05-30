@@ -45,10 +45,11 @@
 (defn rem-e
   "removes entity along with components"
   [ecs entity-id]
-  (-> (reduce #(rem-c %1 entity-id %2)
-              ecs
-              (get-cnames ecs entity-id))
-      (dissoc-in [:etoc] entity-id)))
+  (dissoc-in (reduce #(rem-c %1 entity-id %2)
+                     ecs
+                     (get-cnames ecs entity-id))
+             [:etoc]
+             entity-id))
 
 (defn set-c
   "adds component to entity"
@@ -155,7 +156,11 @@
         ke (keys e)
         kr (keys r)]
     ;; (prn id f args r)
-    (if (not (= ke kr))
+    ;; TODO: add special hook to update site cells :ids by reading positions
+    (if-let [pos (e :position)]
+      (let [new-pos (r :position)]
+        (prn :update-e id f args pos new-pos)))
+    (if (not= ke kr)
       (let [[removed added] (removed-added ke kr)]
         ;; (prn ke '-> kr 'rem removed 'add added)
         (-> ecs 
