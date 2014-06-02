@@ -296,13 +296,12 @@
 
 (defn pix->relative
   "converts position in pixels to position relative (viewport) in tiles"
-  [x y]
-  [(floor (pix2pos x))
-   (floor (pix2pos y))])
+  [xy]
+  (map #(floor (pix2pos %)) xy))
 
 (defn relative->absolute
   "converts relative (viewport) position to absolute (map) position"
-  [x y]
+  [[x y]]
   (let [[vp-x vp-y _ _] (viewport)]
     [(+ vp-x x)
      (+ vp-y y)]))
@@ -347,11 +346,14 @@
   (draw-ents viewport (get-cnames-ents w (node :render)))
   )
 
+(defn draw-info [[x y]])
+
 (defn on-draw
   []
   (let [w (vp-width)
         h (vp-height)
-        viewport (viewport)]
+        viewport (viewport)
+        mouse-pos @(game :mouse-pos)]
     (q/background-float (ui :background-color))
     
     ;; draw grid
@@ -372,7 +374,9 @@
 
     (q/text (str @(game :update-time)) (pos2pix 6) (pos2pix (inc h)))
     (q/text (str @(game :mouse-action)) (pos2pix 9) (pos2pix (inc h)))
-    (q/text (str @(game :mouse-pos)) (pos2pix 16) (pos2pix (inc h)))
+    (q/text (str mouse-pos) (pos2pix 16) (pos2pix (inc h)))
+
+    (draw-info mouse-pos)
     
     (let [world @(game :world)]
       (draw-world world viewport))))
