@@ -27,6 +27,15 @@
 (defn dig [m [x y]]
   (form-if-previous m [x y] :floor :diggable))
 
+(defn random-place
+  "returns random coords on a map for which (pred cell) is true"
+  [m pred max-x max-y]
+  (loop [x (rand-int max-x)
+         y (rand-int max-y)]
+    (if (pred (place m [x y]))
+      [x y]
+      (recur (rand-int max-x) (rand-int max-y)))))
+
 ;; generation of map
 
 (def wall-probability 0.4)

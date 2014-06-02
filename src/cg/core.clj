@@ -6,7 +6,10 @@
   [:require [quil.core :as q]])
 
 (def ui
-  {:window-border 10
+  {:window-width 1000
+   :window-height 700
+   :right-panel-width 300
+   :window-border 10
    :tile-size 17
    :text-size 15
    :char-color 200
@@ -22,20 +25,14 @@
 (def running (atom true))
 
 (def scene {
-            :dw [(speed 10)
-                 (position 32.0 32.0)
-                 (controllable)
-                 (renderable "D")
-                 (job-ready)
-                 ]
             :beast [;;(health)
                     (position 15 15)
                     (renderable "b")]})
 
-(defn new-job [w kind x y]
+(defn new-job [w kind x y char]
   (load-entity w kind [(job kind)
                        (position x y)
-                       (renderable "X")
+                       (renderable char)
                        (free)]))
 
 (defn new-stone [w x y]
@@ -43,11 +40,14 @@
                          (position x y)
                          (renderable "✶")]))
 
-(def map-size 100)
-;; (def site (s/generate site-size 0.4))
-
-;; (def world (atom (load-scene (new-ecs map-size) scene)))
-
+(defn new-player [w]
+  (let [[x y] (s/random-place (:map w) s/passable? 40 40)]
+    (load-entity w :pl [(speed 10)
+                        (position (float x) (float y))
+                        (controllable)
+                        (renderable "D")
+                        (job-ready)
+                        ])))
 
 ;;; State
 
@@ -55,12 +55,14 @@
 ;;; mouse-actions - what does action of mouse have effect on. possible
 ;;; values: :move-to :dig :build-wall
 
-(def game {:world (atom (load-scene (new-ecs map-size)
+(def map-size 100)
+(def game {:world (atom (load-scene (new-ecs (s/generate map-size s/new-cell))
                                     scene))
            :viewport (atom [0 0])
            :paused (atom false)
            :mouse-action (atom :move-to)
-           :update-time (atom 0)})
+           :update-time (atom 0)
+           :mouse-pos (atom [])})
 
 ;;; path finding
 
@@ -69,33 +71,39 @@
 (defn filter-nbr [cells xy]
   (s/passable? (s/place cells xy)))
 
-;; (s/form! site [32 32] :floor)
-
-;;; just for test
-;; (time (prn "path" (astar/path [1 1] [32 32] 1 site get-cell-cost filter-nbr)))
 
 ;;; view port
 
+(defn floor
+  "drops factional part"
+  [position]
+  (quot position 1))
+
+(defn tiles
+  "how many tiles can fit in size"
+  [size]
+  (let [tile-size (ui :tile-size)]
+    (quot (- size (* tile-size 2))
+          tile-size)))
+
 (defn vp-width []
-  (tiles (q/width)))
+  (tiles (- (q/width) (ui :right-panel-width))))
   
 (defn vp-height []
   (tiles (q/height)))
 
-(defn vp []
+(defn viewport []
   (let [[vp-x vp-y] @(game :viewport)]
     [vp-x
      vp-y
      (vp-width)
      (vp-height)]))
 
-(defn round-coords [e comp]
-  [(Math/round (-> e comp :x))
-   (Math/round (-> e comp :y))])
-
-(defn coords [e comp]
-  [(-> e comp :x)
-   (-> e comp :y)])
+(defn in-viewport? [x y]
+  (and (>= x 0)
+       (>= y 0)
+       (< x (vp-width))
+       (< y (vp-height))))
 
 (defn bound
   "returns n bound to limit [0-b]"
@@ -216,13 +224,14 @@
         ;; them
         ;; TODO: check if worker and target coord are connected
         (if-let [[job-id [x y] [tx ty]] (find-reachable w jobs worker)]
-          (do
-            (prn :job-assigned job-id worker-id tx ty x y)
-            (-> w 
-                (update-entity job-id rem-c :free)
-                (update-entity worker-id rem-c :job-ready)
-                (update-entity worker-id set-c (job-dig tx ty job-id))
-                (update-entity worker-id set-c (destination (float x) (float y))))))))))
+          (let [job (get-e w job-id)]
+            (do
+              (prn :job-assigned job-id worker-id tx ty x y)
+              (-> w 
+                  (update-entity job-id rem-c :free)
+                  (update-entity worker-id rem-c :job-ready)
+                  (update-entity worker-id set-c (job-dig tx ty job-id))
+                  (update-entity worker-id set-c (destination (float x) (float y)))))))))))
 
 (defn system-assign-jobs
   "take free workers and find next (closest?) jobs for them"
@@ -267,91 +276,17 @@
 
 
 
-;;; Quil handlers
+;;; Convert stuff
 
-(defn bound-viewport
-  [[x y] [dx dy]]
-  (let [w (vp-width)
-        h (vp-height)]
-    [(bound (- map-size w) (+ x dx))
-     (bound (- map-size h) (+ y dy))]))
-
-(def key-to-scroll {\w [0 -1]
-                    \s [0 1]
-                    \a [-1 0]
-                    \d [1 0]})
-
-(def scroll-amount 5)
-
-(defn on-key
-  "Handles key presses. Returns new state of the world"
-  [w key]
-  ;;(set-val w 0 :health :count key)
-  (condp = key
-    \space (swap! (game :paused) not)
-    \f (reset! (game :mouse-action) :dig)
-    \g (reset! (game :mouse-action) :move-to)
-    \b (reset! (game :mouse-action) :build-wall)
-    (let [delta (map #(* % scroll-amount) (key-to-scroll key [0 0]))]
-      (swap! (game :viewport) bound-viewport delta)
-      ;;(prn delta @(game :viewport))
-      ))
-  w)
-
-(defmulti on-mouse-designate (fn [_ action _ _] action))
-
-(defmethod on-mouse-designate :dig [w action x y]
-  (if (s/diggable? (place w [(int x) (int y)]))
-    (new-job w :dig x y)
-    w))
-
-(defn on-mouse
-  [w x y e]
-  ;; (prn x y e)
-  (let [ids (get-cnames-ids w [:controllable])
-        x (pos-middle (pix2pos x))
-        y (pos-middle (pix2pos y))
-        [vp-x vp-y width height] (vp)
-        real-x (+ vp-x x)
-        real-y (+ vp-y y)
-        in-field (and (>= x 0)
-                      (>= y 0)
-                      (< x width)
-                      (< y height))
-        action @(game :mouse-action)]
-    (prn real-x real-y e action)
-    (if in-field
-      (cond
-       (= action :move-to) (update-entities w ids set-c (destination real-x real-y))
-       (#{:dig :build-wall} action) (on-mouse-designate w action real-x real-y)
-       :else w))))
-
-(defn on-tick
-  "Handles ticks of the world, delta is the time passes since last tick"
-  [w time]
-  (-> w
-      (system-move time)
-      (system-guide time)
-      (system-path-find time)
-      (system-assign-jobs time)
-      (system-dig time)
-      ))
-
-
-
-
-;;; RENDERING STUFF
-
-(defn tiles [size]
-  (let [tile-size (ui :tile-size)]
-    (quot (- size (* tile-size 2))
-          tile-size)))
-
-(defn pos2pix [position]
-  (+ (ui :tile-size) (* position (ui :tile-size))))
+(defn pos2pix
+  "converts relative position (in tile) to position in pixels"
+  [tile-pos]
+  (+ (ui :tile-size)
+     (* tile-pos (ui :tile-size))))
 
 (defn epos2pix
-  "converts entity position to pixels on the screen"
+  "converts entity position to pixels on the screen.
+  shifts coord of entity to place entity in the middle of tile"
   [position]
   (pos2pix (+ 0.5 position)))
 
@@ -359,8 +294,25 @@
   (/ (float (- pixel (ui :tile-size)))
      (ui :tile-size)))
 
-(defn pos-middle [position]
-  (quot position 1))
+(defn pix->relative
+  "converts position in pixels to position relative (viewport) in tiles"
+  [x y]
+  [(floor (pix2pos x))
+   (floor (pix2pos y))])
+
+(defn relative->absolute
+  "converts relative (viewport) position to absolute (map) position"
+  [x y]
+  (let [[vp-x vp-y _ _] (viewport)]
+    [(+ vp-x x)
+     (+ vp-y y)]))
+
+
+;;; Events handlers
+
+(load "handlers")
+
+;;; RENDERING STUFF
 
 (defn draw-ents [[vp-x vp-y w h] ents]
   (doseq [e ents]
@@ -395,11 +347,11 @@
   (draw-ents viewport (get-cnames-ents w (node :render)))
   )
 
-(defn draw
+(defn on-draw
   []
   (let [w (vp-width)
         h (vp-height)
-        viewport (vp)]
+        viewport (viewport)]
     (q/background-float (ui :background-color))
     
     ;; draw grid
@@ -420,6 +372,7 @@
 
     (q/text (str @(game :update-time)) (pos2pix 6) (pos2pix (inc h)))
     (q/text (str @(game :mouse-action)) (pos2pix 9) (pos2pix (inc h)))
+    (q/text (str @(game :mouse-pos)) (pos2pix 16) (pos2pix (inc h)))
     
     (let [world @(game :world)]
       (draw-world world viewport))))
@@ -470,15 +423,17 @@
 
 
 (defn setup []
+  (swap! (game :world) on-start)
   (q/set-state! :font-monaco (q/create-font "Monaco" (ui :text-size) true))
   (q/smooth)
-  (q/frame-rate 30))
+  (q/frame-rate 60))
 
 (q/sketch
  :title "ECS prototype"
- :size [1000 700]
+ :size [(ui :window-width) (ui :window-height)]
  :setup setup
- :draw draw
+ :draw on-draw
  :key-pressed key-press
  :mouse-pressed #(mouse :down)
+ :mouse-moved (fn [] (reset! (game :mouse-pos) [(q/mouse-x) (q/mouse-y)]))
  :on-close (fn [] (reset! running false)))

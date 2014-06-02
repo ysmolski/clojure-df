@@ -37,7 +37,9 @@
 (defcomp controllable [])
 
 (defcomp job [kind]
-  :kind kind)
+  :kind kind
+  :materials [])                        ; ids of material designated
+                                        ; for job
 
 (defcomp free [])
 
@@ -47,6 +49,12 @@
 (defcomp job-ready [])
 
 (defcomp job-dig [x y id]
+  :x x
+  :y y
+  :id id
+  :progress 1000) ;; from 1000 to 0
+
+(defcomp job-wall [x y id]
   :x x
   :y y
   :id id

@@ -4,10 +4,18 @@
   (:use [cg.queue])
   (:require [cg.site :as site]))
 
+(declare get-cnames
+         get-cname-ids
+         rem-c
+         round-coords
+         coords
+         map-add-id
+         map-rem-id)
+
 (defrecord Ecs [id etoc ctoe map map-size])
 
-(defn new-ecs [map-size]
-  (Ecs. 0 {} {} (site/generate map-size site/new-cell) map-size))
+(defn new-ecs [map]
+  (Ecs. 0 {} {} map (if map (count map) 0)))
 
 ;; (defn new-ecs-ref []
 ;;   (ref (new-ecs)))
@@ -33,7 +41,6 @@
 
 ;;;; 2nd level
 ;;;; interface for ECS
-(declare get-cnames get-cname-ids rem-c)
 
 (defn add-e
   "adds entity to the ECS. added id should be extracted using last-id function"
@@ -148,6 +155,18 @@
 (defn- update-e [ecs id entity]
   (assoc-in ecs [:etoc id] entity))
 
+(defn update-map [ecs id e1 e2]
+  (let [[x1 y1] (round-coords e1 :position)
+        [x2 y2] (round-coords e2 :position)]
+    (if (or (not= x1 x2)
+            (not= y1 y2))
+      (do
+        (prn :map [x1 y1] [x2 y2])
+        (-> ecs
+            (map-rem-id [x1 y1] id)
+            (map-add-id [x2 y2] id)))
+      ecs)))
+
 (defn update-entity
   "Takes entity by id and calls function f with entity and args as parameters.
   Returned entity is updated into ECS"
@@ -155,8 +174,9 @@
   (let [e (get-e ecs id)
         r (apply f e args)
         ke (keys e)
-        kr (keys r)]
-    ;; (prn id f args r)
+        kr (keys r)
+        ecs (update-map ecs id e r)]
+    ;; (prn :update-e id f (count args))
     ;; TODO: add special hook to update site cells :ids by reading positions
     ;; (if-let [pos (e :position)]
     ;;   (let [new-pos (r :position)]
@@ -243,8 +263,17 @@
           ecs
           (seq scene)))
 
+
 ;;; MAP operations
 ;;; --------------------------------------------------------------------------------
+
+(defn round-coords [e comp]
+  [(Math/round (-> e comp :x))
+   (Math/round (-> e comp :y))])
+
+(defn coords [e comp]
+  [(-> e comp :x)
+   (-> e comp :y)])
 
 (defn place [ecs [x y]]
   (get-in ecs [:map x y]))
@@ -255,32 +284,16 @@
 (defn map-dig [ecs xy]
   (set-form ecs xy :floor))
 
+(defn map-add-id [ecs [x y] id]
+  (assoc-in ecs [:map x y :ids id] 1))
 
-
+(defn map-rem-id [ecs [x y] id]
+  (dissoc-in ecs [:map x y :ids] id))
 
 
 ;;;; -------------------------
 
 (comment
-  (prn "test")
-  (def s (new-ecs-ref))
-  (prn (add-e! s :player))
-  (pprint s)
-
-  (prn (add-e! s :player))
-  (pprint s)
-
-  (pprint (add-c! s 0 (health)))
-  (pprint (add-c! s 1 (health)))
-  (pprint (add-c! s 0 (keyboard)))
-  ;;(prn (rem-c! s 0 :speed))
-
-  (defn foo
-    "I don't do a whole lot."
-    [x]
-    (println x "Hello, World!"))
-
-
   (defn test-run [s cycles]
     (loop [s s
            n cycles]
