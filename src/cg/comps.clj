@@ -15,15 +15,15 @@
   :count 100)
 
 (defcomp destination [x y]
-  :x x
-  :y y)
+  :x (float x)
+  :y (float y))
 
 (defcomp path [points]
   :points (apply queue points))
 
 (defcomp velocity [x y]
-  :x x
-  :y y)
+  :x (float x)
+  :y (float y))
 
 ;;; how fast is the item can be. it can be recalculated depending in
 ;;; the weight
@@ -31,8 +31,8 @@
   :pixsec pix-per-sec)
 
 (defcomp position [x y]
-  :x x
-  :y y)
+  :x (float x)
+  :y (float y))
 
 (defcomp controllable [])
 

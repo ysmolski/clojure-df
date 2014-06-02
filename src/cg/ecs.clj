@@ -4,9 +4,12 @@
   (:use [cg.queue])
   (:require [cg.site :as site]))
 
+;; all intercations with ecs should go via 
+
 (declare get-cnames
          get-cname-ids
          rem-c
+         get-c
          round-coords
          coords
          map-add-id
@@ -63,11 +66,15 @@
   "adds component to entity"
   ([entity comp]
      (let [cname (comp ::name)]
+       (when (= cname :position)
+         (prn :setc entity))
        (assoc entity cname (dissoc comp ::name))))
   ([ecs entity-id c]
      (let [cname (c ::name)
            c-without-name (dissoc c ::name)]
-       (-> ecs
+       (-> (if (= cname :position)
+             (map-add-id ecs [(c :x) (c :y)] entity-id)
+             ecs)
            (assoc-in [:etoc entity-id cname] c-without-name)
            (assoc-in [:ctoe cname entity-id] 1)))))
 
@@ -76,7 +83,11 @@
   ([entity cname]
      (dissoc entity cname))
   ([ecs entity-id cname]
-     (-> ecs
+     (-> (if (= cname :position)
+           (let [c (get-c ecs entity-id cname)]
+             (prn entity-id c)
+             (map-rem-id ecs [(c :x) (c :y)] entity-id))
+             ecs)
          (dissoc-in [:etoc entity-id] cname)
          (dissoc-in [:ctoe cname] entity-id))))
 
@@ -95,7 +106,7 @@
   [ecs entity-id]
   (get-in ecs [:etoc entity-id]))
 
-(defn get-comp
+(defn get-c
   "returns component `cname` in entity by `id`"
   [ecs id cname]
   (get-in ecs [:etoc id cname]))
@@ -155,7 +166,7 @@
 (defn- update-e [ecs id entity]
   (assoc-in ecs [:etoc id] entity))
 
-(defn update-map [ecs id e1 e2]
+(defn update-map-position [ecs id e1 e2]
   (let [[x1 y1] (round-coords e1 :position)
         [x2 y2] (round-coords e2 :position)]
     (if (or (not= x1 x2)
@@ -167,6 +178,8 @@
             (map-add-id [x2 y2] id)))
       ecs)))
 
+;; public interfaces
+
 (defn update-entity
   "Takes entity by id and calls function f with entity and args as parameters.
   Returned entity is updated into ECS"
@@ -175,12 +188,8 @@
         r (apply f e args)
         ke (keys e)
         kr (keys r)
-        ecs (update-map ecs id e r)]
+        ecs (update-map-position ecs id e r)]
     ;; (prn :update-e id f (count args))
-    ;; TODO: add special hook to update site cells :ids by reading positions
-    ;; (if-let [pos (e :position)]
-    ;;   (let [new-pos (r :position)]
-    ;;     (prn :update-e id f args pos new-pos)))
     (if (not= ke kr)
       (let [[removed added] (removed-added ke kr)]
         ;; (prn ke '-> kr 'rem removed 'add added)
@@ -201,35 +210,15 @@
   (let [ids (get-cnames-ids ecs comp-names)]
     (apply update-entities ecs ids entity-update-fn args)))
 
-(defn set-val
-  "sets value in the component"
-  [ecs id cname k val]
-  (assoc-in ecs [:etoc id cname k] val))
+;; (defn set-val
+;;   "sets value in the component"
+;;   [ecs id cname k val]
+;;   (assoc-in ecs [:etoc id cname k] val))
 
 ;; Performance note:
 ;; We should update tree on the highest possible level, if you perform
 ;; operations on entity then update it at once, then if possible
 ;; component, or the worst case: value in component.
-
-;;;; mutable operations on ECS
-;;;; DON'T USE THEM
-
-;; (defn add-e! [s name]
-;;   (dosync
-;;    (alter s add-e name)
-;;    (dec (:id @s))))
-
-;; (defn add-c! [s ent c]
-;;   (dosync
-;;    (alter s add-c ent c)))
-
-;; (defn rem-c! [s ent cname]
-;;   (dosync
-;;    (alter s rem-c ent cname)))
-
-;; (defn update-val! [s id cname k val]
-;;   (dosync
-;;    (alter s update-val id cname k val)))
 
 ;;;; Components
 
@@ -276,19 +265,19 @@
    (-> e comp :y)])
 
 (defn place [ecs [x y]]
-  (get-in ecs [:map x y]))
+  (get-in ecs [:map (int x) (int y)]))
 
 (defn set-form [ecs [x y] kind]
-  (assoc-in ecs [:map x y :form] kind))
+  (assoc-in ecs [:map (int x) (int y) :form] kind))
 
 (defn map-dig [ecs xy]
   (set-form ecs xy :floor))
 
 (defn map-add-id [ecs [x y] id]
-  (assoc-in ecs [:map x y :ids id] 1))
+  (assoc-in ecs [:map (int x) (int y) :ids id] 1))
 
 (defn map-rem-id [ecs [x y] id]
-  (dissoc-in ecs [:map x y :ids] id))
+  (dissoc-in ecs [:map (int x) (int y) :ids] id))
 
 
 ;;;; -------------------------

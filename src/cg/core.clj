@@ -12,6 +12,7 @@
    :window-border 10
    :tile-size 17
    :text-size 15
+   :text-size-small 10
    :char-color 200
    :ui-color 40
    :wall-color 50
@@ -62,7 +63,7 @@
            :paused (atom false)
            :mouse-action (atom :move-to)
            :update-time (atom 0)
-           :mouse-pos (atom [])})
+           :mouse-pos (atom [0 0])})
 
 ;;; path finding
 
@@ -297,7 +298,7 @@
 (defn pix->relative
   "converts position in pixels to position relative (viewport) in tiles"
   [xy]
-  (map #(floor (pix2pos %)) xy))
+  (map #(int (floor (pix2pos %))) xy))
 
 (defn relative->absolute
   "converts relative (viewport) position to absolute (map) position"
@@ -306,6 +307,7 @@
     [(+ vp-x x)
      (+ vp-y y)]))
 
+(def pix->absolute (comp relative->absolute pix->relative))
 
 ;;; Events handlers
 
@@ -346,12 +348,26 @@
   (draw-ents viewport (get-cnames-ents w (node :render)))
   )
 
-(defn draw-info [[x y]])
+(defn draw-info
+  "display info for the cell by abs position: x, y"
+  [w [x y :as xy]]
+  ;; (prn :draw-info x y)
+  (when (in-viewport? x y)
+    (let [cell (place w xy)
+          ids (keys (:ids cell))
+          entities (map (partial get-e w) ids)]
+      (q/text (str x " " y "\n"
+                   (:form cell) "\n"
+                   ids "\n"
+                   (apply str entities) "\n")
+              (pos2pix (inc (vp-width)))
+              (pos2pix 1)))))
 
 (defn on-draw
   []
-  (let [w (vp-width)
-        h (vp-height)
+  (let [world @(game :world)
+        width (vp-width)
+        height (vp-height)
         viewport (viewport)
         mouse-pos @(game :mouse-pos)]
     (q/background-float (ui :background-color))
@@ -359,27 +375,28 @@
     ;; draw grid
     (q/stroke-weight 1)
     (q/stroke-float (ui :ui-color))
-    (doseq [x (range (inc w))]
+    (doseq [x (range (inc width))]
       (q/line (pos2pix x) (pos2pix 0)
-              (pos2pix x) (pos2pix h)))
-    (doseq [y (range (inc h))]
+              (pos2pix x) (pos2pix height)))
+    (doseq [y (range (inc height))]
       (q/line (pos2pix 0) (pos2pix y)
-              (pos2pix w) (pos2pix y)))
+              (pos2pix width) (pos2pix y)))
 
     ;; (q/text-size (ui :text-size))
-    (q/text-font (q/state :font-monaco))
+    (q/text-font (q/state :font-monaco) (ui :text-size))
 
     (when @(game :paused)
-      (q/text "pause" (pos2pix 0) (pos2pix (inc h))))
+      (q/text "pause" (pos2pix 0) (pos2pix (inc height))))
 
-    (q/text (str @(game :update-time)) (pos2pix 6) (pos2pix (inc h)))
-    (q/text (str @(game :mouse-action)) (pos2pix 9) (pos2pix (inc h)))
-    (q/text (str mouse-pos) (pos2pix 16) (pos2pix (inc h)))
+    (q/text (str @(game :update-time)) (pos2pix 6) (pos2pix (inc height)))
+    (q/text (str @(game :mouse-action)) (pos2pix 9) (pos2pix (inc height)))
+    (q/text (str mouse-pos) (pos2pix 16) (pos2pix (inc height)))
 
-    (draw-info mouse-pos)
-    
-    (let [world @(game :world)]
-      (draw-world world viewport))))
+    (draw-world world viewport)
+
+    (q/text-font (q/state :font-monaco) (ui :text-size-small))
+
+    (draw-info world (pix->absolute mouse-pos))))
 
 
 
