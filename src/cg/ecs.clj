@@ -172,7 +172,7 @@
     (if (or (not= x1 x2)
             (not= y1 y2))
       (do
-        (prn :map [x1 y1] [x2 y2])
+        ;; (prn :map [x1 y1] [x2 y2])
         (-> ecs
             (map-rem-id [x1 y1] id)
             (map-add-id [x2 y2] id)))

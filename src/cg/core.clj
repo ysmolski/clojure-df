@@ -1,6 +1,7 @@
 (ns cg.core
   [:use cg.ecs]
   [:use cg.comps]
+  [:require [cg.ecs :as e]]
   [:require [cg.site :as s]]
   [:require [cg.astar :as astar]]
   [:require [quil.core :as q]])
@@ -348,6 +349,12 @@
   (draw-ents viewport (get-cnames-ents w (node :render)))
   )
 
+(defn entity-info-str [w id]
+  (let [e (get-e w id)
+        n (::e/name e)
+        en (sort-by #(nth % 0) (vec (dissoc e ::e/name)))]
+    (apply str (interpose "\n " (into [n] en)))))
+
 (defn draw-info
   "display info for the cell by abs position: x, y"
   [w [x y :as xy]]
@@ -355,11 +362,11 @@
   (when (in-viewport? x y)
     (let [cell (place w xy)
           ids (keys (:ids cell))
-          entities (map (partial get-e w) ids)]
+          entities (map #(entity-info-str w %) ids)]
       (q/text (str x " " y "\n"
                    (:form cell) "\n"
                    ids "\n"
-                   (apply str entities) "\n")
+                   (apply str (interpose "\n" entities)) "\n")
               (pos2pix (inc (vp-width)))
               (pos2pix 1)))))
 
