@@ -19,6 +19,7 @@
    :wall-color 50
    :background-color 25
    :foreground-color 200
+   :scroll-amount 10
    })
 
 (declare pos2pix pix2pos epos2pix pos-middle tiles)
@@ -358,17 +359,19 @@
 (defn draw-info
   "display info for the cell by abs position: x, y"
   [w [x y :as xy]]
-  ;; (prn :draw-info x y)
-  (when (in-viewport? x y)
-    (let [cell (place w xy)
-          ids (keys (:ids cell))
-          entities (map #(entity-info-str w %) ids)]
-      (q/text (str x " " y "\n"
-                   (:form cell) "\n"
-                   ids "\n"
-                   (apply str (interpose "\n" entities)) "\n")
-              (pos2pix (inc (vp-width)))
-              (pos2pix 1)))))
+  (let [[x y] (pix->relative [x y])
+        abs (relative->absolute [x y])]
+    (when (in-viewport? x y)
+      ;; (prn :draw-info x y abs)
+      (let [cell (place w abs)
+            ids (keys (:ids cell))
+            entities (map #(entity-info-str w %) ids)]
+        (q/text (str (abs 0) " " (abs 1) "\n"
+                     (:form cell) "\n"
+                     ids "\n"
+                     (apply str (interpose "\n" entities)) "\n")
+                (pos2pix (inc (vp-width)))
+                (pos2pix 1))))))
 
 (defn on-draw
   []
@@ -403,7 +406,7 @@
 
     (q/text-font (q/state :font-monaco) (ui :text-size-small))
 
-    (draw-info world (pix->absolute mouse-pos))))
+    (draw-info world mouse-pos)))
 
 
 

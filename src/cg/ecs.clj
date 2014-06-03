@@ -178,6 +178,7 @@
             (map-add-id [x2 y2] id)))
       ecs)))
 
+
 ;; public interfaces
 
 (defn update-entity
@@ -228,24 +229,21 @@
 
 ;;;; Systems
 
-
+;; TODO: add functions for storing systems fns in the ECS and fn for
+;; running them
 
 ;;;; Util
 
-
-;;; load the entity into ECS
-
 (defn load-entity
-  "Loads into ECS an Entity of `ename` and vector of components"
+  "Loads anentity of `ename` and vector of components into ECS"
   [ecs ename comps]
   (let [s (add-e ecs ename)
         id (last-id s)]
     (reduce #(set-c %1 id %2) s comps)))
 
-;;; load hash-map of entities into ECS
-
 (defn load-scene
-  "Loads into ECS a scene, which is hashmap, where keys are names of entities and values are vectors containing components"
+  "Loads into ECS a scene, which is hashmap, where keys are names
+  of entities and values are vectors containing components"
   [ecs scene]
   (reduce (fn [ecs [ename comps]]
             (load-entity ecs ename comps))
