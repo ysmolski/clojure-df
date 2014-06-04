@@ -24,7 +24,7 @@
 
 (declare pos2pix pix2pos epos2pix pos-middle tiles)
 
-(def update-sleep-ms 33)
+(def update-sleep-ms 10)
 (def running (atom true))
 
 (def scene {
@@ -228,13 +228,12 @@
         ;; TODO: check if worker and target coord are connected
         (if-let [[job-id [x y] [tx ty]] (find-reachable w jobs worker)]
           (let [job (get-e w job-id)]
-            (do
-              (prn :job-assigned job-id worker-id tx ty x y)
-              (-> w 
-                  (update-entity job-id rem-c :free)
-                  (update-entity worker-id rem-c :job-ready)
-                  (update-entity worker-id set-c (job-dig tx ty job-id))
-                  (update-entity worker-id set-c (destination (float x) (float y)))))))))))
+            (prn :job-assigned job-id worker-id tx ty x y)
+            (-> w 
+                (update-entity job-id rem-c :free)
+                (update-entity worker-id rem-c :job-ready)
+                (update-entity worker-id set-c (job-dig tx ty job-id))
+                (update-entity worker-id set-c (destination (float x) (float y))))))))))
 
 (defn system-assign-jobs
   "take free workers and find next (closest?) jobs for them"
@@ -261,13 +260,12 @@
     ;; (prn :job-do job-kind e-xy job-xy progress)
     (if (bordering? e-xy job-xy)
       (if (neg? progress)
-        (do
-          (-> w
-              (map-dig job-xy)
-              (update-entity id rem-c job-kind)
-              (update-entity id set-c (job-ready))
-              (rem-e job-id)
-              (add-with-prob 0.5 new-stone (job-xy 0) (job-xy 1))))
+        (-> w
+            (map-dig job-xy)
+            (update-entity id rem-c job-kind)
+            (update-entity id set-c (job-ready))
+            (rem-e job-id)
+            (add-with-prob 0.5 new-stone (job-xy 0) (job-xy 1)))
         (update-entity w id #(update-in %1 [job-kind :progress] - time)))
       w)))
 
@@ -398,7 +396,8 @@
     (when @(game :paused)
       (q/text "pause" (pos2pix 0) (pos2pix (inc height))))
 
-    (q/text (str @(game :update-time)) (pos2pix 6) (pos2pix (inc height)))
+    (q/text (str :e @(game :update-time)) (pos2pix 3) (pos2pix (inc height)))
+    (q/text (str :f (Math/round (q/current-frame-rate))) (pos2pix 6) (pos2pix (inc height)))
     (q/text (str @(game :mouse-action)) (pos2pix 9) (pos2pix (inc height)))
     (q/text (str mouse-pos) (pos2pix 16) (pos2pix (inc height)))
 
@@ -421,25 +420,27 @@
  
 (def updater (agent nil :error-handler err-handler-fn))
 
-(defn updating [_]
-  (when @running
-    (send-off *agent* #'updating))
-  (let [start (System/nanoTime)
-        new-world (if @(game :paused)
-                    (game :world)
-                    (swap! (game :world) on-tick update-sleep-ms))
-        elapsed (/ (double (- (System/nanoTime) start)) 1000000.0)]
+(defn updating []
+  ;; (when @running
+  ;;   (send-off *agent* #'updating))
+  (loop []
+    (let [start (System/nanoTime)
+          new-world (if @(game :paused)
+                      (game :world)
+                      (swap! (game :world) on-tick update-sleep-ms))
+          elapsed (/ (double (- (System/nanoTime) start)) 1000000.0)]
 
-    (swap! (game :update-time) averager (/ (float 1000) (max update-sleep-ms elapsed)))
-    
-    (if (> elapsed update-sleep-ms)
-      (prn "elapsed:" elapsed)
-      (Thread/sleep (- update-sleep-ms elapsed))))
+      (swap! (game :update-time) averager (/ (float 1000) (max update-sleep-ms elapsed)))
+      
+      (if (> elapsed update-sleep-ms)
+        (prn "elapsed:" elapsed)
+        (Thread/sleep (- update-sleep-ms elapsed)))
+      (recur)))
   nil)
 
-(send-off updater updating)
+;;(send-off updater updating)
 
-
+(.start (Thread. updating))
 
 ;;; quil handlers 
 
@@ -462,9 +463,11 @@
 (q/sketch
  :title "ECS prototype"
  :size [(ui :window-width) (ui :window-height)]
+ :renderer :p2d
  :setup setup
  :draw on-draw
  :key-pressed key-press
  :mouse-pressed #(mouse :down)
  :mouse-moved (fn [] (reset! (game :mouse-pos) [(q/mouse-x) (q/mouse-y)]))
+ :mouse-wheel (fn [] (reset! (game :mouse-pos) [(q/mouse-x) (q/mouse-y)]))
  :on-close (fn [] (reset! running false)))
