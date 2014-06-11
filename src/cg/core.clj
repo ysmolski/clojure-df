@@ -1,4 +1,5 @@
 (ns cg.core
+  [:use jordanlewis.data.union-find]
   [:use cg.ecs]
   [:use cg.comps]
   [:require [cg.ecs :as e]]
@@ -20,6 +21,8 @@
    :background-color 25
    :foreground-color 200
    :scroll-amount 10
+   :fps-cap 45
+   :ups-cap 45
    })
 
 (declare pos2pix pix2pos epos2pix pos-middle tiles)
@@ -396,7 +399,7 @@
     (when @(game :paused)
       (q/text "pause" (pos2pix 0) (pos2pix (inc height))))
 
-    (q/text (str :e @(game :update-time)) (pos2pix 3) (pos2pix (inc height)))
+    (q/text (str :u @(game :update-time)) (pos2pix 3) (pos2pix (inc height)))
     (q/text (str :f (Math/round (q/current-frame-rate))) (pos2pix 6) (pos2pix (inc height)))
     (q/text (str @(game :mouse-action)) (pos2pix 9) (pos2pix (inc height)))
     (q/text (str mouse-pos) (pos2pix 16) (pos2pix (inc height)))
@@ -424,7 +427,8 @@
   ;; (when @running
   ;;   (send-off *agent* #'updating))
   (loop []
-    (let [start (System/nanoTime)
+    (let [update-sleep-ms (/ 1000 (float (ui :ups-cap)))
+          start (System/nanoTime)
           new-world (if @(game :paused)
                       (game :world)
                       (swap! (game :world) on-tick update-sleep-ms))
@@ -433,7 +437,7 @@
       (swap! (game :update-time) averager (/ (float 1000) (max update-sleep-ms elapsed)))
       
       (if (> elapsed update-sleep-ms)
-        (prn "elapsed:" elapsed)
+        (prn "elapsed:" elapsed update-sleep-ms)
         (Thread/sleep (- update-sleep-ms elapsed)))
       (recur)))
   nil)
@@ -458,7 +462,7 @@
   (swap! (game :world) on-start)
   (q/set-state! :font-monaco (q/create-font "Monaco" (ui :text-size) true))
   (q/smooth)
-  (q/frame-rate 60))
+  (q/frame-rate (ui :fps-cap)))
 
 (q/sketch
  :title "ECS prototype"

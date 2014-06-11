@@ -5,4 +5,5 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [quil "2.0.0"]
+                 [org.jordanlewis/data.union-find "0.1.0"]
                  ])
