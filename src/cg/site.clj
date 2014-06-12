@@ -23,6 +23,13 @@
 (defn diggable? [cell]
   (= (:form cell) :diggable))
 
+(defn connected? [m xy1 xy2]
+  (let [c1 (place m xy1)
+        c2 (place m xy2)]
+    (and (passable? c1)
+         (= (:region c1)
+            (:region c2)))))
+
 (defn form [m [x y] form]
   (assoc-in m [x y :form] form))
 
@@ -45,6 +52,32 @@
     (if (pred (place m [x y]))
       [x y]
       (recur (rand-int max-x) (rand-int max-y)))))
+
+(defn vec-2d [size cell-fn]
+  (apply vector (map (fn [_] (apply vector (map (fn [_] (cell-fn))
+                                               (range size))))
+                     (range size))))
+
+(def conn-scan-dirs [[-1  0]
+                     [-1 -1]
+                     [ 0 -1]
+                     [ 1 -1]])
+
+(defn nbrs-regions [m size xy]
+  (let [nbrs (neighbors conn-scan-dirs size xy)]
+    (distinct (keep #(:region (get-in m %)) nbrs))))
+
+(defn range-2d
+  "Generates vector of vectors [x y] where x and y go through mentioned range
+  Iterate through each element of the data by column, then by row (Raster Scanning)"
+  ([start end]
+      (for [x (range start end)
+            y (range start end)]
+        [y x]))
+  ([end]
+     (for [x (range end)
+           y (range end)]
+        [y x])))
 
 ;; generation of map
 
@@ -101,37 +134,13 @@
   (nth (iterate smooth m)
        times))
 
-(defn vec-2d [size cell-fn]
-  (apply vector (map (fn [_] (apply vector (map (fn [_] (cell-fn))
-                                               (range size))))
-                     (range size))))
-
-(def conn-dirs [[-1  0]
-                [-1 -1]
-                [ 0 -1]
-                [ 1 -1]])
+;;; CONNECTED REGIONS
 
 (defn union-all
   [uf regions]
   (reduce (partial apply u/union)
           uf
           (partition 2 1 regions)))
-
-(defn nbrs-regions [m size xy]
-  (let [nbrs (neighbors conn-dirs size xy)]
-    (distinct (keep #(:region (get-in m %)) nbrs))))
-
-(defn range-2d
-  "Generates vector of vectors [x y] where x and y go through mentioned range
-  Iterate through each element of the data by column, then by row (Raster Scanning)"
-  ([start end]
-      (for [x (range start end)
-            y (range start end)]
-        [y x]))
-  ([end]
-     (for [x (range end)
-           y (range end)]
-        [y x])))
 
 (defn- scan-regions
   "performs first scan of passables and assigns regions using union-find

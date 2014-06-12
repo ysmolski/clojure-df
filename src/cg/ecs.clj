@@ -167,8 +167,8 @@
   (assoc-in ecs [:etoc id] entity))
 
 (defn update-map-position [ecs id e1 e2]
-  (let [[x1 y1] (round-coords e1 :position)
-        [x2 y2] (round-coords e2 :position)]
+  (let [[x1 y1] (round-coords (e1 :position))
+        [x2 y2] (round-coords (e2 :position))]
     (if (or (not= x1 x2)
             (not= y1 y2))
       (do
@@ -254,13 +254,13 @@
 ;;; MAP operations
 ;;; --------------------------------------------------------------------------------
 
-(defn round-coords [e comp]
-  [(Math/round (-> e comp :x))
-   (Math/round (-> e comp :y))])
+(defn round-coords [c]
+  [(Math/round (c :x))
+   (Math/round (c :y))])
 
-(defn coords [e comp]
-  [(-> e comp :x)
-   (-> e comp :y)])
+(defn coords [c]
+  [(c :x)
+   (c :y)])
 
 (defn place [ecs [x y]]
   (get-in ecs [:map (int x) (int y)]))

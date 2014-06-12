@@ -74,8 +74,8 @@
 
 (defn get-cell-cost [cells xy] 10)
 
-(defn filter-nbr [cells xy]
-  (s/passable? (s/place cells xy)))
+(defn filter-nbr [m xy]
+  (s/passable? (s/place m xy)))
 
 
 ;;; view port
@@ -189,8 +189,8 @@
 ;;; PATH FIND SYSTEM
 
 (defn path-find-add [e time mp]
-  (let [[ex ey] (round-coords e :position)
-        [x y] (round-coords e :destination)
+  (let [[ex ey] (round-coords (e :position))
+        [x y] (round-coords (e :destination))
         new-path (astar/path [ex ey] [x y] 11 mp get-cell-cost filter-nbr)
         ;new-path {:xys [[x y]]}
         ]
@@ -207,31 +207,44 @@
 
 ;;; ------- JOBS SYSTEM
 
+(defn find-reachable-nbrs
+  "finds all neighbour points of to-xy reachable from from-xy"
+  [w [fx fy :as from-xy] to-xy]
+  (->> to-xy
+       (astar/neighbors (:map-size w))
+       (filter (partial s/connected? (:map w) from-xy))
+       (sort-by (fn [[tx ty]] (distance fx fy tx ty)))))
+
 (defn find-reachable
-  "tries to find free cell next to cells specified by ids and return [id [x y]]
-   where x,y - coords of found free cell. otherwise returns nil"
-  [w ids entity]
-  (when (seq ids)
-    (let [id (first ids)
+  "Tries to find free cell next to entity specified by target-ids reachable from xy.
+  Returns [id [x y] [tx ty]] where
+  id - id of reachable target entity
+  x y - coords of found free-cell.
+  tx ty - coords of target entity
+  Otherwise returns nil."
+  [w xy target-ids]
+  (when (seq target-ids)
+    (let [id (first target-ids)
           target (get-e w id)
-          [tx ty] (round-coords target :position)]
-      (let [free-nbrs (filter (partial filter-nbr (:map w)) (astar/neighbors map-size [tx ty]))]
-        (if (empty? free-nbrs)
-          (recur w (rest ids) entity)
-          [id (first free-nbrs) [tx ty]])))))
+          txy (round-coords (target :position))]
+      (let [reachable-nbrs (find-reachable-nbrs w xy txy)]
+        (prn reachable-nbrs)
+        (if (empty? reachable-nbrs)
+          (recur w xy (rest target-ids))
+          [id (first reachable-nbrs) txy])))))
 
 (defn assign-jobs
   [w time]
-  (let [ids (get-cnames-ids w (node :free-worker))
-        jobs (get-cnames-ids w (node :free-job))]
-    (if-not (or (empty? ids)
+  (let [workers (get-cnames-ids w (node :free-worker))
+        jobs    (get-cnames-ids w (node :free-job))]
+    (if-not (or (empty? workers)
                 (empty? jobs))
-      (let [worker-id (first ids)
-            worker (get-e w worker-id)]
+      (let [worker-id (first workers)
+            xy (round-coords (get-c w worker-id :position))]
         ;; find unoccupied neighbors and check if worker can get to
         ;; them
         ;; TODO: check if worker and target coord are connected
-        (if-let [[job-id [x y] [tx ty]] (find-reachable w jobs worker)]
+        (if-let [[job-id [x y] [tx ty]] (find-reachable w xy jobs)]
           (let [job (get-e w job-id)]
             (prn :job-assigned job-id worker-id tx ty x y)
             (-> w 
@@ -248,6 +261,8 @@
       res
       w)))
 
+;; EXECUTE JOBS
+
 (defn add-with-prob [w probability f & args]
   (if (< (rand) probability)
     (apply f w args)
@@ -258,8 +273,8 @@
    if job is completed then remove job property from worker and destroy job entity"
   [w id job-kind time]
   (let [e (get-e w id)
-        e-xy (round-coords e :position)
-        job-xy (coords e job-kind)
+        e-xy (round-coords (e :position))
+        job-xy (coords (e job-kind))
         {job-id :id
          progress :progress} (job-kind e)]
     ;; (prn :job-do job-kind e-xy job-xy progress)

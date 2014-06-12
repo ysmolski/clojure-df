@@ -10,6 +10,7 @@
            [-1 -1]])
 
 (defn neighbors
+  "return vec of coords of neighbors of xy"
   ([size xy] (neighbors dirs size xy))
   ([deltas size xy]
      (filter (fn [new-xy]
