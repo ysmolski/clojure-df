@@ -106,56 +106,74 @@
                                                (range size))))
                      (range size))))
 
-(defn generate [size cell-fn]
-  (let [m (vec-2d size cell-fn)]
-    (-> m
-        (add-borders)
-        (smooth-times 2))))
-
 (def conn-dirs [[-1  0]
                 [-1 -1]
                 [ 0 -1]
                 [ 1 -1]])
 
-(defn union-regions
+(defn union-all
   [uf regions]
   (reduce (partial apply u/union)
           uf
           (partition 2 1 regions)))
 
-(defn nbrs-labels [m size xy]
+(defn nbrs-regions [m size xy]
   (let [nbrs (neighbors conn-dirs size xy)]
     (distinct (keep #(:region (get-in m %)) nbrs))))
 
 (defn range-2d
-  "generates vector of vectors [x y] where x and y go through mentioned range"
+  "Generates vector of vectors [x y] where x and y go through mentioned range
+  Iterate through each element of the data by column, then by row (Raster Scanning)"
   ([start end]
       (for [x (range start end)
             y (range start end)]
-        [x y]))
+        [y x]))
   ([end]
      (for [x (range end)
            y (range end)]
-        [x y])))
+        [y x])))
 
-(defn add-connectivity-first [m]
+(defn- scan-regions
+  "performs first scan of passables and assigns regions using union-find
+  http://en.wikipedia.org/wiki/Connected-component_labeling#Two-pass"
+  [m]
   (let [size (count m)]
     (loop [m m
            cells (range-2d 1 (dec size))
            uf (u/union-find)
            last-region 0
-           passables []]
+           passables '()]
       (if-let [xy (first cells)] 
         (let [cell (place m xy)
               more (rest cells)]
           (if (passable? cell)
-            (let [labels (nbrs-labels m size xy)
+            (let [labels (nbrs-regions m size xy)
                   passables (conj passables xy)]
-              (prn xy labels uf)
+              ;;(prn xy labels uf)
               (if (empty? labels)
                 (recur (region m xy last-region) more (conj uf last-region) (inc last-region) passables)
                 (let [min-label (apply min labels)]
-                  (recur (region m xy min-label) more (union-regions uf labels) last-region passables))))
+                  (recur (region m xy min-label) more (union-all uf labels) last-region passables))))
             (recur m more uf last-region passables)))
+        [m uf passables]))))
+
+(defn add-regions
+  "returns map with cells being marked with same numbers
+  if they belong to the same connected region"
+  [m]
+  (let [[m uf passables] (scan-regions m)]
+    (prn uf (count passables))
+    (loop [m m
+           cells passables]
+      (if-let [xy (first cells)]
+        (recur (region m xy (uf (:region (place m xy))))
+               (rest cells))
         m))))
+
+(defn generate [size cell-fn]
+  (let [m (vec-2d size cell-fn)]
+    (-> m
+        (add-borders)
+        (smooth-times 2)
+        (add-regions))))
 

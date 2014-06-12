@@ -124,7 +124,7 @@
   (and (>= 1 (Math/abs (- x1 x2)))
        (>= 1 (Math/abs (- y1 y2)))))
 
-;;; Systems
+;;; SYSTEMS
 
 
 (defn move [e time]
@@ -165,7 +165,6 @@
             vy (* relation dy)]
         [vx vy]))))
 
-;;; TODO refactor this piece
 (defn guide
   "calculates velocity based on position, next point and speed"
   [e time]
@@ -187,6 +186,8 @@
 (defn system-guide [w time]
   (update-comps w (node :guide) guide time))
 
+;;; PATH FIND SYSTEM
+
 (defn path-find-add [e time mp]
   (let [[ex ey] (round-coords e :position)
         [x y] (round-coords e :destination)
@@ -204,6 +205,7 @@
   (update-comps w (node :path-find) path-find-add time (:map w)))
 
 
+;;; ------- JOBS SYSTEM
 
 (defn find-reachable
   "tries to find free cell next to cells specified by ids and return [id [x y]]
@@ -318,6 +320,15 @@
 
 ;;; RENDERING STUFF
 
+;; TODO: remove magic numbers 4 and 6
+
+(defn text
+  "x and y are tiles coordinates"
+  [t x y]
+  (q/text t
+          (- (epos2pix x) 4)
+          (+ (epos2pix y) 6)))
+
 (defn draw-ents [[vp-x vp-y w h] ents]
   (doseq [e ents]
     (let [m (e :position)
@@ -326,28 +337,30 @@
           y (- (m :y) vp-y)]
       (if (and (< 0 x w)
                (< 0 y h))
-        (q/text (r :char)
-                (- (epos2pix x) 4)
-                (+ (epos2pix y) 6))))))
+        (text (r :char) x y)))))
 
-(defn draw-tile-bg [passable x y]
-  (when-not passable
+(defn draw-tile [cell x y]
+  (when-not (s/passable? cell)
     (q/rect (pos2pix x)
             (pos2pix y)
             (ui :tile-size)
-            (ui :tile-size))))
+            (ui :tile-size)))
+  (when-let [r (:region cell)]
+    (text (str r) x y)))
 
 (defn draw-site [w [vp-x vp-y width height]]
   (doseq [x (range width)
           y (range height)]
     (let [cell (place w [(+ vp-x x) (+ vp-y y)])]
-      (draw-tile-bg (s/passable? cell) x y))))
+      (draw-tile cell x y))))
 
 (defn draw-world [w viewport]
   ;(q/text (str (get-cname-ids w :renderable)) 10 390)
   (q/fill (ui :wall-color))
+  (q/text-font (q/state :font-monaco) (ui :text-size-small))
   (draw-site w viewport)
   (q/fill (ui :char-color))
+  (q/text-font (q/state :font-monaco) (ui :text-size))
   (draw-ents viewport (get-cnames-ents w (node :render)))
   )
 
@@ -473,5 +486,5 @@
  :key-pressed key-press
  :mouse-pressed #(mouse :down)
  :mouse-moved (fn [] (reset! (game :mouse-pos) [(q/mouse-x) (q/mouse-y)]))
- :mouse-wheel (fn [] (reset! (game :mouse-pos) [(q/mouse-x) (q/mouse-y)]))
+;; :mouse-wheel (fn [] (reset! (game :mouse-pos) [(q/mouse-x) (q/mouse-y)]))
  :on-close (fn [] (reset! running false)))

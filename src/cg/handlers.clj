@@ -25,7 +25,8 @@
     \f (reset! (game :mouse-action) :dig)
     \g (reset! (game :mouse-action) :move-to)
     \b (reset! (game :mouse-action) :build-wall)
-    (let [delta (map #(* % (ui :scroll-amount)) (key-to-scroll key [0 0]))]
+    (let [delta (map #(* % (ui :scroll-amount))
+                     (key-to-scroll key [0 0]))]
       (swap! (game :viewport) bound-viewport delta)
       ;;(prn delta @(game :viewport))
       ))
