@@ -62,8 +62,10 @@
 ;;; values: :move-to :dig :build-wall
 
 (def map-size 100)
-(def game {:world (atom (load-scene (new-ecs (s/generate map-size s/new-cell))
-                                    scene))
+(def game {:world (atom (-> map-size
+                            (s/generate s/new-cell)
+                            (new-ecs)
+                            (load-scene scene)))
            :viewport (atom [0 0])
            :paused (atom false)
            :mouse-action (atom :move-to)
@@ -120,7 +122,7 @@
       b
       n)))
 
-(defn bordering? [[x1 y1] [x2 y2]]
+(defn contacting? [[x1 y1] [x2 y2]]
   (and (>= 1 (Math/abs (- x1 x2)))
        (>= 1 (Math/abs (- y1 y2)))))
 
@@ -194,7 +196,7 @@
         new-path (astar/path [ex ey] [x y] 11 mp get-cell-cost filter-nbr)
         ;new-path {:xys [[x y]]}
         ]
-    (prn "path" x y ex ey new-path)
+    (prn :path-found x y ex ey new-path)
     (if (empty? (new-path :xys))
       (rem-c e :destination)
       (-> e
@@ -243,7 +245,6 @@
             xy (round-coords (get-c w worker-id :position))]
         ;; find unoccupied neighbors and check if worker can get to
         ;; them
-        ;; TODO: check if worker and target coord are connected
         (if-let [[job-id [x y] [tx ty]] (find-reachable w xy jobs)]
           (let [job (get-e w job-id)]
             (prn :job-assigned job-id worker-id tx ty x y)
@@ -278,14 +279,14 @@
         {job-id :id
          progress :progress} (job-kind e)]
     ;; (prn :job-do job-kind e-xy job-xy progress)
-    (if (bordering? e-xy job-xy)
+    (if (contacting? e-xy job-xy)
       (if (neg? progress)
         (-> w
             (map-dig job-xy)
             (update-entity id rem-c job-kind)
             (update-entity id set-c (job-ready))
             (rem-e job-id)
-            (add-with-prob 0.5 new-stone (job-xy 0) (job-xy 1)))
+            (add-with-prob 0.1 new-stone (job-xy 0) (job-xy 1)))
         (update-entity w id #(update-in %1 [job-kind :progress] - time)))
       w)))
 

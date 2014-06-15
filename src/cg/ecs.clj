@@ -2,7 +2,7 @@
   (:use [clojure.pprint :only [pprint]])
   (:use [clojure.set :only [intersection difference]])
   (:use [cg.queue])
-  (:require [cg.site :as site]))
+  (:require [cg.site :as s]))
 
 ;; all intercations with ecs should go via 
 
@@ -15,10 +15,10 @@
          map-add-id
          map-rem-id)
 
-(defrecord Ecs [id etoc ctoe map map-size])
+(defrecord Ecs [id etoc ctoe map map-size rc])
 
-(defn new-ecs [map]
-  (Ecs. 0 {} {} map (if map (count map) 0)))
+(defn new-ecs [[map region->cells]]
+  (Ecs. 0 {} {} map (if map (count map) 0) region->cells))
 
 ;; (defn new-ecs-ref []
 ;;   (ref (new-ecs)))
@@ -265,11 +265,43 @@
 (defn place [ecs [x y]]
   (get-in ecs [:map (int x) (int y)]))
 
-(defn set-form [ecs [x y] kind]
-  (assoc-in ecs [:map (int x) (int y) :form] kind))
+(defn form [ecs [x y] kind]
+  (update-in ecs [:map] s/form [(int x) (int y)] kind))
 
-(defn map-dig [ecs xy]
-  (set-form ecs xy :floor))
+(defn region [ecs [x y] r]
+  (-> ecs
+      (assoc-in [:map x y :region] r)
+      (update-in [:rc] s/rc-add r [x y])))
+
+(defn reset-region [ecs old-r new-r]
+  (let [cells (s/rc-cells (:rc ecs) old-r)]
+    (-> (reduce (fn [ecs [x y]]
+                  (assoc-in ecs [:map x y :region] new-r))
+                ecs
+                cells)
+        (update-in [:rc] s/rc-move old-r new-r))))
+
+(defn add-region
+  "Adds region for cell xy based on neighbour cells."
+  [ecs [x y]]
+  (let [rs (s/nbrs-regions (:map ecs) (:map-size ecs) [x y])]
+    (if (= 1 (count rs))
+      (region ecs [x y] (first rs))
+      (let [sorted-regions (s/rc-biggest (:rc ecs) rs)
+            big (first sorted-regions)
+            other (rest sorted-regions)]
+        (prn :add-region sorted-regions)
+        (-> (reduce #(reset-region %1 %2 big) ecs other)
+            (region [x y] big))))))
+
+
+(defn map-dig
+  "Digs cell in position and puts floor into the place.
+  Also updates region of newly dug cell."
+  [ecs xy]
+  (-> ecs
+      (form xy :floor)
+      (add-region xy)))
 
 (defn map-add-id [ecs [x y] id]
   (assoc-in ecs [:map (int x) (int y) :ids id] 1))

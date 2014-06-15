@@ -1,5 +1,5 @@
 (ns cg.site
-  (:use [cg.astar :only [neighbors]])
+  (:require [cg.astar :as a])
   (:require [jordanlewis.data.union-find :as u]))
 
 ;; tools
@@ -58,14 +58,17 @@
                                                (range size))))
                      (range size))))
 
-(def conn-scan-dirs [[-1  0]
-                     [-1 -1]
-                     [ 0 -1]
-                     [ 1 -1]])
+(def uf-scan-dirs [[-1  0]
+                   [-1 -1]
+                   [ 0 -1]
+                   [ 1 -1]])
 
-(defn nbrs-regions [m size xy]
-  (let [nbrs (neighbors conn-scan-dirs size xy)]
-    (distinct (keep #(:region (get-in m %)) nbrs))))
+(defn nbrs-regions
+  ([m size xy]
+     (nbrs-regions m size xy a/all-dirs))
+  ([m size xy dirs]
+     (let [nbrs (a/neighbors dirs size xy)]
+       (distinct (keep #(:region (get-in m %)) nbrs)))))
 
 (defn range-2d
   "Generates vector of vectors [x y] where x and y go through mentioned range
@@ -142,6 +145,36 @@
           uf
           (partition 2 1 regions)))
 
+(defn rc-add
+  [rc r xy]
+  (if (contains? rc r)
+    (assoc-in rc [r xy] 1)
+    (assoc rc r {xy 1})))
+
+(defn rc-cells [rc r]
+  (keys (rc r)))
+
+(defn rc-regions [rc]
+  (keys rc))
+
+(defn rc-biggest
+  "Returns list of regions sorted by the area they occupy in descending order"
+  [rc regions]
+  (map #(nth % 0)
+       (sort-by #(nth % 1)
+                >
+                (map (fn [r]
+                       [r (count (rc-cells rc r))])
+                     regions))))
+
+(defn rc-move
+  [rc old-r new-r]
+  (let [old (rc old-r)]
+    (prn :rc-move old-r (keys old) :to new-r)
+    (-> rc
+        (dissoc old-r)
+        (update-in [new-r] merge old))))
+
 (defn- scan-regions
   "performs first scan of passables and assigns regions using union-find
   http://en.wikipedia.org/wiki/Connected-component_labeling#Two-pass"
@@ -156,7 +189,7 @@
         (let [cell (place m xy)
               more (rest cells)]
           (if (passable? cell)
-            (let [labels (nbrs-regions m size xy)
+            (let [labels (nbrs-regions m size xy uf-scan-dirs)
                   passables (conj passables xy)]
               ;;(prn xy labels uf)
               (if (empty? labels)
@@ -173,11 +206,13 @@
   (let [[m uf passables] (scan-regions m)]
     (prn uf (count passables))
     (loop [m m
-           cells passables]
+           cells passables
+           rc {}]
       (if-let [xy (first cells)]
-        (recur (region m xy (uf (:region (place m xy))))
-               (rest cells))
-        m))))
+        (let [r (uf (:region (place m xy)))]
+          ;;(prn xy r (if (< (count (rc r)) 8) (rc r) []))
+          (recur (region m xy r) (rest cells) (rc-add rc r xy)))
+        [m rc]))))
 
 (defn generate [size cell-fn]
   (let [m (vec-2d size cell-fn)]

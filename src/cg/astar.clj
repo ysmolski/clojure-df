@@ -1,6 +1,6 @@
 (ns cg.astar)
 
-(def dirs [[-1 0]
+(def all-dirs [[-1 0]
            [-1 1]
            [0 1]
            [1 1]
@@ -11,7 +11,7 @@
 
 (defn neighbors
   "return vec of coords of neighbors of xy"
-  ([size xy] (neighbors dirs size xy))
+  ([size xy] (neighbors all-dirs size xy))
   ([deltas size xy]
      (filter (fn [new-xy]
                (every? #(< -1 % size) new-xy))
