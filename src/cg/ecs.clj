@@ -281,7 +281,7 @@
                 cells)
         (update-in [:rc] s/rc-move old-r new-r))))
 
-(defn add-region
+(defn update-region
   "Adds region for cell xy based on neighbour cells."
   [ecs [x y]]
   (let [rs (s/nbrs-regions (:map ecs) (:map-size ecs) [x y])]
@@ -294,14 +294,13 @@
         (-> (reduce #(reset-region %1 %2 big) ecs other)
             (region [x y] big))))))
 
-
 (defn map-dig
   "Digs cell in position and puts floor into the place.
   Also updates region of newly dug cell."
   [ecs xy]
   (-> ecs
       (form xy :floor)
-      (add-region xy)))
+      (update-region xy)))
 
 (defn map-add-id [ecs [x y] id]
   (assoc-in ecs [:map (int x) (int y) :ids id] 1))

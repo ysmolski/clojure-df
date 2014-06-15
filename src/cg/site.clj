@@ -145,14 +145,17 @@
           uf
           (partition 2 1 regions)))
 
+(defn rc-new []
+  {})
+
 (defn rc-add
   [rc r xy]
   (if (contains? rc r)
-    (assoc-in rc [r xy] 1)
-    (assoc rc r {xy 1})))
+    (update-in rc [r] conj xy)
+    (assoc rc r #{xy})))
 
 (defn rc-cells [rc r]
-  (keys (rc r)))
+  (rc r))
 
 (defn rc-regions [rc]
   (keys rc))
@@ -170,10 +173,10 @@
 (defn rc-move
   [rc old-r new-r]
   (let [old (rc old-r)]
-    (prn :rc-move old-r (keys old) :to new-r)
+    (prn :rc-move old-r old :to new-r)
     (-> rc
         (dissoc old-r)
-        (update-in [new-r] merge old))))
+        (update-in [new-r] clojure.set/union old))))
 
 (defn- scan-regions
   "performs first scan of passables and assigns regions using union-find
@@ -207,12 +210,14 @@
     (prn uf (count passables))
     (loop [m m
            cells passables
-           rc {}]
+           rc (rc-new)]
       (if-let [xy (first cells)]
         (let [r (uf (:region (place m xy)))]
           ;;(prn xy r (if (< (count (rc r)) 8) (rc r) []))
           (recur (region m xy r) (rest cells) (rc-add rc r xy)))
-        [m rc]))))
+        (do
+          (prn rc)
+          [m rc])))))
 
 (defn generate [size cell-fn]
   (let [m (vec-2d size cell-fn)]
