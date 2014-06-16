@@ -268,17 +268,24 @@
 (defn form [ecs [x y] kind]
   (update-in ecs [:map] s/form [(int x) (int y)] kind))
 
-(defn region [ecs [x y] r]
+(defn region
+  "Set cell [x y] to the region r and set true visibility for it"
+  [ecs [x y] r]
   (-> ecs
+      (update-in [:map] s/add-visible (:map-size ecs) [x y])
       (assoc-in [:map x y :region] r)
       (update-in [:rc] s/rc-add r [x y])))
 
-(defn reset-region [ecs old-r new-r]
+(defn move-region
+  "Adds region old-r to region new-r and updates map.
+  Also makes region old-r visible"
+  [ecs old-r new-r]
   (let [cells (s/rc-cells (:rc ecs) old-r)]
     (-> (reduce (fn [ecs [x y]]
                   (assoc-in ecs [:map x y :region] new-r))
                 ecs
                 cells)
+        (update-in [:map] s/add-visibles cells)
         (update-in [:rc] s/rc-move old-r new-r))))
 
 (defn update-region
@@ -290,8 +297,8 @@
       (let [sorted-regions (s/rc-biggest (:rc ecs) rs)
             big (first sorted-regions)
             other (rest sorted-regions)]
-        (prn :add-region sorted-regions)
-        (-> (reduce #(reset-region %1 %2 big) ecs other)
+        (prn :update-region sorted-regions)
+        (-> (reduce #(move-region %1 %2 big) ecs other)
             (region [x y] big))))))
 
 (defn map-dig
@@ -308,6 +315,12 @@
 (defn map-rem-id [ecs [x y] id]
   (dissoc-in ecs [:map (int x) (int y) :ids] id))
 
+(defn init-visible
+  "updates cells visibility from point [x y] using region->cells hash"
+  [w xy]
+  (let [r (s/region (:map w) xy)
+        cells (s/rc-cells (:rc w) r)]
+    (update-in w [:map] s/add-visibles cells)))
 
 ;;;; -------------------------
 

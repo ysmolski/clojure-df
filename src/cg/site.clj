@@ -10,7 +10,7 @@
 ;;; World consists of Cells. Each cell has IDs of
 ;;; entities inside of it and details (wall/floor/passable).
 
-(defrecord Cell [form ids region])
+(defrecord Cell [form ids region visible])
 
 (def cell-forms [:floor :wall :door :diggable])
 
@@ -30,11 +30,25 @@
          (= (:region c1)
             (:region c2)))))
 
-(defn form [m [x y] form]
-  (assoc-in m [x y :form] form))
+(defn visible? [cell]
+  (:visible cell))
 
-(defn region [m [x y] region]
-  (assoc-in m [x y :region] region))
+(defn form [m [x y] val]
+  (assoc-in m [x y :form] val))
+
+(defn region
+  ([m [x y] val]
+     (assoc-in m [x y :region] val))
+  ([m [x y]]
+     (get-in m [x y :region])))
+
+(defn visible
+  ([m [x y] val]
+     (if (visible m [x y])
+       m
+       (assoc-in m [x y :visible] val)))
+  ([m [x y]]
+     (get-in m [x y :visible])))
 
 (defn form-if-previous [m [x y] form previous-form]
   (update-in m [x y] #(if (= previous-form (:form %))
@@ -91,7 +105,8 @@
            :floor
            :diggable)
          {}
-         nil))
+         nil
+         false))
 
 (defn add-borders [m]
   (let [size (count m)]
@@ -187,7 +202,7 @@
            cells (range-2d 1 (dec size))
            uf (u/union-find)
            last-region 0
-           passables '()]
+           passables []]
       (if-let [xy (first cells)] 
         (let [cell (place m xy)
               more (rest cells)]
@@ -202,27 +217,32 @@
             (recur m more uf last-region passables)))
         [m uf passables]))))
 
-(defn add-regions
+(defn init-regions
   "returns map with cells being marked with same numbers
   if they belong to the same connected region"
   [m]
-  (let [[m uf passables] (scan-regions m)]
-    (prn uf (count passables))
-    (loop [m m
-           cells passables
-           rc (rc-new)]
-      (if-let [xy (first cells)]
-        (let [r (uf (:region (place m xy)))]
-          ;;(prn xy r (if (< (count (rc r)) 8) (rc r) []))
-          (recur (region m xy r) (rest cells) (rc-add rc r xy)))
-        (do
-          (prn rc)
-          [m rc])))))
+  (let [[m uf passables] (scan-regions m)
+        rc (rc-new)
+        u-fn (fn [[m rc] xy]
+               (let [r (uf (region m xy))]
+                 [(region m xy r) (rc-add rc r xy)]))]
+    (reduce u-fn [m rc] passables)))
+
+(defn add-visible [m size xy]
+  (let [nbrs (a/neighbors a/all-dirs size xy)]
+    (-> (reduce #(visible %1 %2 true) m nbrs)
+        (visible xy true))))
+
+;; FIX: generate expanded area by 1 tile efficiently 
+(defn add-visibles
+  [m cells]
+  (let [size (count m)]
+    (reduce #(add-visible %1 size %2) m cells)))
 
 (defn generate [size cell-fn]
   (let [m (vec-2d size cell-fn)]
     (-> m
         (add-borders)
         (smooth-times 2)
-        (add-regions))))
+        (init-regions))))
 

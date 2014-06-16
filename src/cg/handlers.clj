@@ -2,7 +2,7 @@
 
 (defn on-start [w]
   (-> w
-      (new-player)))
+      (new-spawn)))
 
 (defn bound-viewport
   [[x y] [dx dy]]

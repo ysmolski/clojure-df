@@ -46,14 +46,19 @@
                          (position x y)
                          (renderable "✶")]))
 
-(defn new-player [w]
-  (let [[x y] (s/random-place (:map w) s/passable? 40 40)]
-    (load-entity w :pl [(speed 10)
+(defn new-player [w [x y]]
+  (load-entity w :unit [(speed 10)
                         (position (float x) (float y))
                         (controllable)
                         (renderable "D")
                         (job-ready)
-                        ])))
+                        ]))
+
+(defn new-spawn [w]
+  (let [xy (s/random-place (:map w) s/passable? 40 40)]
+    (-> w
+        (new-player xy)
+        (init-visible xy))))
 
 ;;; State
 
@@ -65,7 +70,8 @@
 (def game {:world (atom (-> map-size
                             (s/generate s/new-cell)
                             (new-ecs)
-                            (load-scene scene)))
+                            ;; (load-scene scene)
+                            ))
            :viewport (atom [0 0])
            :paused (atom false)
            :mouse-action (atom :move-to)
@@ -78,7 +84,6 @@
 
 (defn filter-nbr [m xy]
   (s/passable? (s/place m xy)))
-
 
 ;;; view port
 
@@ -337,13 +342,12 @@
 ;;; RENDERING STUFF
 
 ;; TODO: remove magic numbers 4 and 6
-
 (defn text
   "x and y are tiles coordinates"
   [t x y]
   (q/text t
           (- (epos2pix x) 4)
-          (+ (epos2pix y) 6)))
+          (+ (epos2pix y) 7)))
 
 (defn draw-ents [[vp-x vp-y w h] ents]
   (doseq [e ents]
@@ -356,13 +360,14 @@
         (text (r :char) x y)))))
 
 (defn draw-tile [cell x y]
-  (when-not (s/passable? cell)
-    (q/rect (pos2pix x)
-            (pos2pix y)
-            (ui :tile-size)
-            (ui :tile-size)))
-  (when-let [r (:region cell)]
-    (text (str r) x y)))
+  (when (s/visible? cell)
+    (when-not (s/passable? cell)
+      (q/rect (pos2pix x)
+              (pos2pix y)
+              (ui :tile-size)
+              (ui :tile-size)))
+    (when-let [r (:region cell)]
+      (text (str r) x y))))
 
 (defn draw-site [w [vp-x vp-y width height]]
   (doseq [x (range width)
@@ -397,7 +402,9 @@
             ids (keys (:ids cell))
             entities (map #(entity-info-str w %) ids)]
         (q/text (str (abs 0) " " (abs 1) "\n"
-                     (:form cell) "\n"
+                     "form " (:form cell) "\n"
+                     "visible " (:visible cell) "\n"
+                     "region " (:region cell) "\n"
                      ids "\n"
                      (apply str (interpose "\n" entities)) "\n")
                 (pos2pix (inc (vp-width)))
@@ -484,8 +491,6 @@
   "Possible events: :down :up :drag :move :enter :leave."
   [event]
   (swap! (game :world) on-mouse (q/mouse-x) (q/mouse-y) event))
-
-
 
 (defn setup []
   (swap! (game :world) on-start)
