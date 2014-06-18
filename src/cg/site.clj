@@ -104,7 +104,7 @@
   (Cell. (if (> (rand) wall-probability)
            :floor
            :diggable)
-         {}
+         #{}
          nil
          false))
 
@@ -175,15 +175,18 @@
 (defn rc-regions [rc]
   (keys rc))
 
-(defn rc-biggest
-  "Returns list of regions sorted by the area they occupy in descending order"
-  [rc regions]
-  (map #(nth % 0)
-       (sort-by #(nth % 1)
-                >
-                (map (fn [r]
-                       [r (count (rc-cells rc r))])
-                     regions))))
+(defn rc-area [rc r]
+  (count (rc-cells rc r)))
+
+(defn rc-sort-by-area
+  "Returns list of regions sorted by the area they occupy in comp order"
+  ([comp rc]
+     (rc-sort-by-area comp rc (rc-regions rc)))
+  ([comp rc regions]
+     (sort-by #(rc-area rc %) comp regions)))
+
+(def rc-biggest-area (partial rc-sort-by-area >))
+(def rc-smallest-area (partial rc-sort-by-area <))
 
 (defn rc-move
   [rc old-r new-r]

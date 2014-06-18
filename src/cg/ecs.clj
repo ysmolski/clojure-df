@@ -85,7 +85,7 @@
   ([ecs entity-id cname]
      (-> (if (= cname :position)
            (let [c (get-c ecs entity-id cname)]
-             (prn entity-id c)
+             ;;(prn entity-id c)
              (map-rem-id ecs [(c :x) (c :y)] entity-id))
              ecs)
          (dissoc-in [:etoc entity-id] cname)
@@ -265,41 +265,82 @@
 (defn place [ecs [x y]]
   (get-in ecs [:map (int x) (int y)]))
 
-(defn form [ecs [x y] kind]
-  (update-in ecs [:map] s/form [(int x) (int y)] kind))
+(defn form [ecs [x y] val]
+  (update-in ecs [:map] s/form [(int x) (int y)] val))
 
-(defn region
-  "Set cell [x y] to the region r and set true visibility for it"
+(defn region [ecs [x y] val]
+  (update-in ecs [:map] s/region [(int x) (int y)] val))
+
+(defn map-add-id [ecs [x y] id]
+  (update-in ecs [:map (int x) (int y) :ids] conj id))
+
+(defn map-rem-id [ecs [x y] id]
+  (update-in ecs [:map (int x) (int y) :ids] disj id))
+
+(defn rem-if-in-cell
+  "Removes from ECS entities found in cell xy for which (pred entity-id) is true"
+  [pred ecs xy]
+  (let [cell-ids (:ids (place ecs xy))]
+    ;; (prn :rem-if-in-cell xy cell-ids)
+    (reduce #(if (pred %2) (rem-e %1 %2) %1) ecs cell-ids)))
+
+;; FIX: add check if the job is actuall job dig
+(defn rem-ents-in-cells
+  "Gets ids which have component cnames and if those ids are found in cells, removes them
+  from map and ecs completely."
+  [ecs cnames cells]
+  (let [ids (get-cnames-ids ecs cnames)
+        f (partial rem-if-in-cell #(contains? ids %))]
+    (reduce f ecs cells)))
+
+;; visible system
+
+(defn init-visible
+  "updates cells visibility from point [x y] using region->cells hash"
+  [w xy]
+  (let [r (s/region (:map w) xy)
+        cells (s/rc-cells (:rc w) r)]
+    (update-in w [:map] s/add-visibles cells)))
+
+;; dig system
+
+(defn add-region
+  "Sets cell [x y] to the region r and sets visible for it"
   [ecs [x y] r]
+  ;; (prn (place ecs [x y]))
   (-> ecs
       (update-in [:map] s/add-visible (:map-size ecs) [x y])
-      (assoc-in [:map x y :region] r)
+      (region [x y] r)
       (update-in [:rc] s/rc-add r [x y])))
 
 (defn move-region
   "Adds region old-r to region new-r and updates map.
-  Also makes region old-r visible"
+  If region old-r visible then it makes new-r visible and vise versa."
   [ecs old-r new-r]
-  (let [cells (s/rc-cells (:rc ecs) old-r)]
-    (-> (reduce (fn [ecs [x y]]
-                  (assoc-in ecs [:map x y :region] new-r))
-                ecs
-                cells)
-        (update-in [:map] s/add-visibles cells)
-        (update-in [:rc] s/rc-move old-r new-r))))
+  (let [cells (s/rc-cells (:rc ecs) old-r)
+        hidden-cells (if (s/visible (:map ecs) (first cells))
+                       (s/rc-cells (:rc ecs) new-r)
+                       cells)]
+    (-> (reduce #(region %1 %2 new-r) ecs cells)
+        (update-in [:map] s/add-visibles hidden-cells)
+        (update-in [:rc] s/rc-move old-r new-r)
+        (rem-ents-in-cells [:job] hidden-cells))))
 
 (defn update-region
-  "Adds region for cell xy based on neighbour cells."
+  "Adds region for cell xy based on neighbour cells.
+  Chooses biggest neighbour region and renames other regions to it.
+  Sets :visibible for all Neighbour regions"
   [ecs [x y]]
   (let [rs (s/nbrs-regions (:map ecs) (:map-size ecs) [x y])]
     (if (= 1 (count rs))
-      (region ecs [x y] (first rs))
-      (let [sorted-regions (s/rc-biggest (:rc ecs) rs)
+      (add-region ecs [x y] (first rs))
+      (let [sorted-regions (s/rc-biggest-area (:rc ecs) rs)
             big (first sorted-regions)
             other (rest sorted-regions)]
         (prn :update-region sorted-regions)
         (-> (reduce #(move-region %1 %2 big) ecs other)
-            (region [x y] big))))))
+            (add-region [x y] big))))))
+
 
 (defn map-dig
   "Digs cell in position and puts floor into the place.
@@ -309,18 +350,6 @@
       (form xy :floor)
       (update-region xy)))
 
-(defn map-add-id [ecs [x y] id]
-  (assoc-in ecs [:map (int x) (int y) :ids id] 1))
-
-(defn map-rem-id [ecs [x y] id]
-  (dissoc-in ecs [:map (int x) (int y) :ids] id))
-
-(defn init-visible
-  "updates cells visibility from point [x y] using region->cells hash"
-  [w xy]
-  (let [r (s/region (:map w) xy)
-        cells (s/rc-cells (:rc w) r)]
-    (update-in w [:map] s/add-visibles cells)))
 
 ;;;; -------------------------
 

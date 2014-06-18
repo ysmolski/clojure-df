@@ -12,16 +12,16 @@
    :window-height 700
    :right-panel-width 300
    :window-border 10
-   :tile-size 17
+   :tile-size 16
    :text-size 15
    :text-size-small 10
    :char-color 200
    :ui-color 40
-   :wall-color 50
+   :wall-color 80
    :background-color 25
    :foreground-color 200
    :scroll-amount 10
-   :fps-cap 45
+   :fps-cap 60
    :ups-cap 45
    })
 
@@ -55,7 +55,9 @@
                         ]))
 
 (defn new-spawn [w]
-  (let [xy (s/random-place (:map w) s/passable? 40 40)]
+  (let [xy (s/random-place (:map w) s/passable? 40 40)
+        ;;xy (first (s/rc-cells (:rc w) (first (s/rc-smallest-area (:rc w)))))
+        ]
     (-> w
         (new-player xy)
         (init-visible xy))))
@@ -235,7 +237,7 @@
           target (get-e w id)
           txy (round-coords (target :position))]
       (let [reachable-nbrs (find-reachable-nbrs w xy txy)]
-        (prn reachable-nbrs)
+        (prn :reachable-nbrs reachable-nbrs)
         (if (empty? reachable-nbrs)
           (recur w xy (rest target-ids))
           [id (first reachable-nbrs) txy])))))
@@ -287,10 +289,10 @@
     (if (contacting? e-xy job-xy)
       (if (neg? progress)
         (-> w
-            (map-dig job-xy)
             (update-entity id rem-c job-kind)
             (update-entity id set-c (job-ready))
             (rem-e job-id)
+            (map-dig job-xy)
             (add-with-prob 0.1 new-stone (job-xy 0) (job-xy 1)))
         (update-entity w id #(update-in %1 [job-kind :progress] - time)))
       w)))
@@ -359,15 +361,22 @@
                (< 0 y h))
         (text (r :char) x y)))))
 
-(defn draw-tile [cell x y]
-  (when (s/visible? cell)
-    (when-not (s/passable? cell)
-      (q/rect (pos2pix x)
+(defn draw-rect [x y color]
+  (q/fill color)
+  (q/rect (pos2pix x)
               (pos2pix y)
               (ui :tile-size)
               (ui :tile-size)))
-    (when-let [r (:region cell)]
-      (text (str r) x y))))
+
+(defn draw-tile [cell x y]
+  (if (s/visible? cell)
+    (do
+      (when-not (s/passable? cell)
+        (draw-rect x y (ui :wall-color)))
+      (when-let [r (:region cell)]
+        (text (str r) x y)))
+    (do
+      (draw-rect x y 0))))
 
 (defn draw-site [w [vp-x vp-y width height]]
   (doseq [x (range width)
@@ -379,6 +388,7 @@
   ;(q/text (str (get-cname-ids w :renderable)) 10 390)
   (q/fill (ui :wall-color))
   (q/text-font (q/state :font-monaco) (ui :text-size-small))
+  (q/no-stroke)
   (draw-site w viewport)
   (q/fill (ui :char-color))
   (q/text-font (q/state :font-monaco) (ui :text-size))
@@ -399,7 +409,7 @@
     (when (in-viewport? x y)
       ;; (prn :draw-info x y abs)
       (let [cell (place w abs)
-            ids (keys (:ids cell))
+            ids (:ids cell)
             entities (map #(entity-info-str w %) ids)]
         (q/text (str (abs 0) " " (abs 1) "\n"
                      "form " (:form cell) "\n"
@@ -420,14 +430,14 @@
     (q/background-float (ui :background-color))
     
     ;; draw grid
-    (q/stroke-weight 1)
-    (q/stroke-float (ui :ui-color))
-    (doseq [x (range (inc width))]
-      (q/line (pos2pix x) (pos2pix 0)
-              (pos2pix x) (pos2pix height)))
-    (doseq [y (range (inc height))]
-      (q/line (pos2pix 0) (pos2pix y)
-              (pos2pix width) (pos2pix y)))
+    ;; (q/stroke-weight 1)
+    ;; (q/stroke-float (ui :ui-color))
+    ;; (doseq [x (range (inc width))]
+    ;;   (q/line (pos2pix x) (pos2pix 0)
+    ;;           (pos2pix x) (pos2pix height)))
+    ;; (doseq [y (range (inc height))]
+    ;;   (q/line (pos2pix 0) (pos2pix y)
+    ;;           (pos2pix width) (pos2pix y)))
 
     ;; (q/text-size (ui :text-size))
     (q/text-font (q/state :font-monaco) (ui :text-size))
