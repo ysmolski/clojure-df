@@ -339,11 +339,11 @@
 
 ;;; Events handlers
 
-(load "handlers")
+(load "core_handlers")
 
 ;;; RENDERING STUFF
 
-;; TODO: remove magic numbers 4 and 6
+;; TODO: remove magic numbers
 (defn text
   "x and y are tiles coordinates"
   [t x y]
@@ -460,27 +460,22 @@
 
 ;;; ticks thread
 
-(defn averager [v1 v2]
-  (int (/ (+ v1 v2) 2)))
+(defn averager [& args]
+  (int (/ (apply + args) (count args))))
 
-(defn err-handler-fn [ag ex]
-  (println "agent error: " ex 
-           "\nvalue " @ag))
- 
-(def updater (agent nil :error-handler err-handler-fn))
+(defn game! [key f & args]
+  (apply swap! (key game) f args))
 
 (defn updating []
-  ;; (when @running
-  ;;   (send-off *agent* #'updating))
   (loop []
     (let [update-sleep-ms (/ 1000 (float (ui :ups-cap)))
           start (System/nanoTime)
-          new-world (if @(game :paused)
-                      (game :world)
-                      (swap! (game :world) on-tick update-sleep-ms))
+          new-world (if @(:paused game)
+                      (:world game)
+                      (game! :world on-tick update-sleep-ms))
           elapsed (/ (double (- (System/nanoTime) start)) 1000000.0)]
 
-      (swap! (game :update-time) averager (/ (float 1000) (max update-sleep-ms elapsed)))
+      (game! :update-time averager (/ (float 1000) (max update-sleep-ms elapsed)))
       
       (if (> elapsed update-sleep-ms)
         (prn "elapsed:" elapsed update-sleep-ms)
@@ -488,22 +483,20 @@
       (recur)))
   nil)
 
-;;(send-off updater updating)
-
 (.start (Thread. updating))
 
 ;;; quil handlers 
 
 (defn key-press []
-  (swap! (game :world) on-key (q/raw-key)))
+  (game! :world on-key (q/raw-key)))
 
 (defn mouse
   "Possible events: :down :up :drag :move :enter :leave."
   [event]
-  (swap! (game :world) on-mouse (q/mouse-x) (q/mouse-y) event))
+  (game! :world on-mouse (q/mouse-x) (q/mouse-y) event))
 
 (defn setup []
-  (swap! (game :world) on-start)
+  (game! :world on-start)
   (q/set-state! :font-monaco (q/create-font "Monaco" (ui :text-size) true))
   (q/smooth)
   (q/frame-rate (ui :fps-cap)))

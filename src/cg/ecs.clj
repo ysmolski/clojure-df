@@ -29,7 +29,7 @@
 (defn last-id
   "returns id of last added entity"
   [ecs]
-  (dec (get ecs :id)))
+  (dec (:id ecs)))
 
 (defn inc-id
   "returns ECS with increased id counter"
@@ -65,15 +65,15 @@
 (defn set-c
   "adds component to entity"
   ([entity comp]
-     (let [cname (comp ::name)]
-       (when (= cname :position)
-         (prn :setc entity))
+     (let [cname (::name comp)]
+       ;; (when (= cname :position)
+       ;;   (prn :setc entity))
        (assoc entity cname (dissoc comp ::name))))
   ([ecs entity-id c]
-     (let [cname (c ::name)
+     (let [cname (::name c)
            c-without-name (dissoc c ::name)]
        (-> (if (= cname :position)
-             (map-add-id ecs [(c :x) (c :y)] entity-id)
+             (map-add-id ecs [(:x c) (:y c)] entity-id)
              ecs)
            (assoc-in [:etoc entity-id cname] c-without-name)
            (assoc-in [:ctoe cname entity-id] 1)))))
@@ -86,7 +86,7 @@
      (-> (if (= cname :position)
            (let [c (get-c ecs entity-id cname)]
              ;;(prn entity-id c)
-             (map-rem-id ecs [(c :x) (c :y)] entity-id))
+             (map-rem-id ecs [(:x c) (:y c)] entity-id))
              ecs)
          (dissoc-in [:etoc entity-id] cname)
          (dissoc-in [:ctoe cname] entity-id))))
@@ -167,15 +167,13 @@
   (assoc-in ecs [:etoc id] entity))
 
 (defn update-map-position [ecs id e1 e2]
-  (let [[x1 y1] (round-coords (e1 :position))
-        [x2 y2] (round-coords (e2 :position))]
+  (let [[x1 y1] (round-coords (:position e1))
+        [x2 y2] (round-coords (:position e2))]
     (if (or (not= x1 x2)
             (not= y1 y2))
-      (do
-        ;; (prn :map [x1 y1] [x2 y2])
-        (-> ecs
-            (map-rem-id [x1 y1] id)
-            (map-add-id [x2 y2] id)))
+      (-> ecs
+          (map-rem-id [x1 y1] id)
+          (map-add-id [x2 y2] id))
       ecs)))
 
 
@@ -255,12 +253,12 @@
 ;;; --------------------------------------------------------------------------------
 
 (defn round-coords [c]
-  [(Math/round (c :x))
-   (Math/round (c :y))])
+  [(Math/round (:x c))
+   (Math/round (:y c))])
 
 (defn coords [c]
-  [(c :x)
-   (c :y)])
+  [(:x c)
+   (:y c)])
 
 (defn place [ecs [x y]]
   (get-in ecs [:map (int x) (int y)]))
@@ -293,6 +291,7 @@
         f (partial rem-if-in-cell #(contains? ids %))]
     (reduce f ecs cells)))
 
+
 ;; visible system
 
 (defn init-visible
@@ -301,6 +300,7 @@
   (let [r (s/region (:map w) xy)
         cells (s/rc-cells (:rc w) r)]
     (update-in w [:map] s/add-visibles cells)))
+
 
 ;; dig system
 
