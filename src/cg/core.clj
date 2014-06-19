@@ -1,13 +1,12 @@
 (ns cg.core
-  [:use cg.common]
-  [:use cg.ecs]
-  [:use cg.comps]
-  [:use cg.systems.move]
-  [:use cg.systems.guide]
-  [:use cg.systems.pathfind]
-  [:use cg.systems.job-assign]
-  [:use cg.systems.job-exec]
-  [:require [cg.ecs :as e]]
+  (:use cg.common)
+  (:use cg.ecs)
+  (:use cg.comps)
+  (:use cg.systems.move)
+  (:use cg.systems.guide)
+  (:use cg.systems.pathfind)
+  (:use cg.systems.job-assign)
+  (:use cg.systems.job-exec)
   [:require [cg.site :as s]]
   [:require [cg.units :as u]]
   [:require [cg.astar :as astar]]
@@ -31,7 +30,7 @@
    :ups-cap 45
    })
 
-(declare pos2pix pix2pos epos2pix pos-middle tiles)
+(declare pos2pix pix2pos epos2pix pos-middle tiles on-draw on-draw on-draw)
 
 (def update-sleep-ms 10)
 (def running (atom true))
@@ -187,8 +186,8 @@
 
 (defn entity-info-str [w id]
   (let [e (get-e w id)
-        n (::e/name e)
-        en (sort-by #(nth % 0) (vec (dissoc e ::e/name)))]
+        n (e-name e)
+        en (sort-by #(nth % 0) (vec (no-name e)))]
     (apply str (interpose "\n " (into [n] en)))))
 
 (defn draw-info

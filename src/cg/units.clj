@@ -1,6 +1,6 @@
 (ns cg.units
-  [:use cg.ecs]
-  [:use cg.comps])
+  (:require [cg.comps :refer :all]
+            [cg.ecs :refer :all]))
 
 (defn add-job [w kind x y char]
   (load-entity w kind [(job kind)

@@ -26,6 +26,13 @@
 ;;;; 1st level
 ;;;; internal representation should be hidden
 
+;; FIX: rethink how to handle ::names more properly
+(defn e-name [e]
+  (::name e))
+
+(defn no-name [e]
+  (dissoc e ::name))
+
 (defn last-id
   "returns id of last added entity"
   [ecs]
