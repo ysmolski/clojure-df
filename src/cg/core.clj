@@ -1,9 +1,15 @@
 (ns cg.core
-  [:use jordanlewis.data.union-find]
+  [:use cg.common]
   [:use cg.ecs]
   [:use cg.comps]
+  [:use cg.systems.move]
+  [:use cg.systems.guide]
+  [:use cg.systems.pathfind]
+  [:use cg.systems.job-assign]
+  [:use cg.systems.job-exec]
   [:require [cg.ecs :as e]]
   [:require [cg.site :as s]]
+  [:require [cg.units :as u]]
   [:require [cg.astar :as astar]]
   [:require [quil.core :as q]])
 
@@ -34,32 +40,12 @@
             :beast [;;(health)
                     (position 15 15)
                     (renderable "b")]})
-
-(defn new-job [w kind x y char]
-  (load-entity w kind [(job kind)
-                       (position x y)
-                       (renderable char)
-                       (free)]))
-
-(defn new-stone [w x y]
-  (load-entity w :stone [(stone :gabbro)
-                         (position x y)
-                         (renderable "✶")]))
-
-(defn new-player [w [x y]]
-  (load-entity w :unit [(speed 10)
-                        (position (float x) (float y))
-                        (controllable)
-                        (renderable "D")
-                        (job-ready)
-                        ]))
-
 (defn new-spawn [w]
   (let [xy (s/random-place (:map w) s/passable? 40 40)
         ;;xy (first (s/rc-cells (:rc w) (first (s/rc-smallest-area (:rc w)))))
         ]
     (-> w
-        (new-player xy)
+        (u/add-player xy)
         (init-visible xy))))
 
 ;;; State
@@ -71,9 +57,7 @@
 (def map-size 100)
 (def game {:world (atom (-> map-size
                             (s/generate s/new-cell)
-                            (new-ecs)
-                            ;; (load-scene scene)
-                            ))
+                            (new-ecs)))
            :viewport (atom [0 0])
            :paused (atom false)
            :mouse-action (atom :move-to)
@@ -82,17 +66,7 @@
 
 ;;; path finding
 
-(defn get-cell-cost [cells xy] 10)
-
-(defn filter-nbr [m xy]
-  (s/passable? (s/place m xy)))
-
 ;;; view port
-
-(defn floor
-  "drops factional part"
-  [position]
-  (quot position 1))
 
 (defn tiles
   "how many tiles can fit in size"
@@ -119,190 +93,6 @@
        (>= y 0)
        (< x (vp-width))
        (< y (vp-height))))
-
-(defn bound
-  "returns n bound to limit [0-b]"
-  [b n]
-  (if (neg? n)
-    0
-    (if (>= n b)
-      b
-      n)))
-
-(defn contacting? [[x1 y1] [x2 y2]]
-  (and (>= 1 (Math/abs (- x1 x2)))
-       (>= 1 (Math/abs (- y1 y2)))))
-
-;;; SYSTEMS
-
-
-(defn move [e time]
-  (let [v (e :velocity)
-        t-norm (/ time 1000)
-        dx (* (v :x) t-norm)
-        dy (* (v :y) t-norm)]
-    (-> e
-        (update-in [:position :x] + dx)
-        (update-in [:position :y] + dy))))
-
-(defn system-move [w time]
-  (update-comps w (node :move) move time))
-
-;;; Guide System
-
-(defn distance
-  "distance between points"
-  ([x1 y1 x2 y2]
-     (let [dx (- x2 x1)
-           dy (- y2 y1)]
-       (distance dx dy)))
-  ([dx dy]
-     (Math/sqrt (+ (* dx dx)
-                   (* dy dy)))))
-
-(defn project-speed
-  "calculates projected speed on x and y from x1, y2 to x2, y2 and absolute speed"
-  [x1 y1 x2 y2 speed]
-  (let [dx (- x2 x1)
-        dy (- y2 y1)
-        dist (distance dx dy)]
-    (if (< dist 0.2)
-      [0 0]
-      (let [relation (/ (float speed)
-                        dist)
-            vx (* relation dx)
-            vy (* relation dy)]
-        [vx vy]))))
-
-(defn guide
-  "calculates velocity based on position, next point and speed"
-  [e time]
-  (let [points (-> e :path :points)
-        next-point (peek points)]
-    (if (nil? next-point)
-      (-> e
-          (rem-c :velocity)
-          (rem-c :path))
-      (let [p (e :position)
-            s (-> e :speed :pixsec)
-            [vx vy] (project-speed (p :x) (p :y) (next-point 0) (next-point 1) s)]
-        (if (zero? vx)
-          (-> e
-              (update-in [:path :points] pop)
-              (set-c (velocity 0.0 0.0)))
-          (set-c e (velocity vx vy)))))))
-
-(defn system-guide [w time]
-  (update-comps w (node :guide) guide time))
-
-;;; PATH FIND SYSTEM
-
-(defn path-find-add [e time mp]
-  (let [[ex ey] (round-coords (e :position))
-        [x y] (round-coords (e :destination))
-        new-path (astar/path [ex ey] [x y] 11 mp get-cell-cost filter-nbr)
-        ;new-path {:xys [[x y]]}
-        ]
-    (prn :path-found x y ex ey new-path)
-    (if (empty? (new-path :xys))
-      (rem-c e :destination)
-      (-> e
-          (set-c (path (new-path :xys)))
-          (rem-c :destination)))))
-
-(defn system-path-find [w time]
-  (update-comps w (node :path-find) path-find-add time (:map w)))
-
-
-;;; ------- JOBS SYSTEM
-
-(defn find-reachable-nbrs
-  "finds all neighbour points of to-xy reachable from from-xy"
-  [w [fx fy :as from-xy] to-xy]
-  (->> to-xy
-       (astar/neighbors (:map-size w))
-       (filter (partial s/connected? (:map w) from-xy))
-       (sort-by (fn [[tx ty]] (distance fx fy tx ty)))))
-
-(defn find-reachable
-  "Tries to find free cell next to entity specified by target-ids reachable from xy.
-  Returns [id [x y] [tx ty]] where
-  id - id of reachable target entity
-  x y - coords of found free-cell.
-  tx ty - coords of target entity
-  Otherwise returns nil."
-  [w xy target-ids]
-  (when (seq target-ids)
-    (let [id (first target-ids)
-          target (get-e w id)
-          txy (round-coords (target :position))]
-      (let [reachable-nbrs (find-reachable-nbrs w xy txy)]
-        (prn :reachable-nbrs reachable-nbrs)
-        (if (empty? reachable-nbrs)
-          (recur w xy (rest target-ids))
-          [id (first reachable-nbrs) txy])))))
-
-(defn assign-jobs
-  [w time]
-  (let [workers (get-cnames-ids w (node :free-worker))
-        jobs    (get-cnames-ids w (node :free-job))]
-    (if-not (or (empty? workers)
-                (empty? jobs))
-      (let [worker-id (first workers)
-            xy (round-coords (get-c w worker-id :position))]
-        ;; find unoccupied neighbors and check if worker can get to
-        ;; them
-        (if-let [[job-id [x y] [tx ty]] (find-reachable w xy jobs)]
-          (let [job (get-e w job-id)]
-            (prn :job-assigned job-id worker-id tx ty x y)
-            (-> w 
-                (update-entity job-id rem-c :free)
-                (update-entity worker-id rem-c :job-ready)
-                (update-entity worker-id set-c (job-dig tx ty job-id))
-                (update-entity worker-id set-c (destination (float x) (float y))))))))))
-
-(defn system-assign-jobs
-  "take free workers and find next (closest?) jobs for them"
-  [w time]
-  (let [res (assign-jobs w time)]
-    (if res
-      res
-      w)))
-
-;; EXECUTE JOBS
-
-(defn add-with-prob [w probability f & args]
-  (if (< (rand) probability)
-    (apply f w args)
-    w))
-
-(defn try-job
-  "takes world and id of worker who has a job-dig and tries to perform the job.
-   if job is completed then remove job property from worker and destroy job entity"
-  [w id job-kind time]
-  (let [e (get-e w id)
-        e-xy (round-coords (e :position))
-        job-xy (coords (e job-kind))
-        {job-id :id
-         progress :progress} (job-kind e)]
-    ;; (prn :job-do job-kind e-xy job-xy progress)
-    (if (contacting? e-xy job-xy)
-      (if (neg? progress)
-        (-> w
-            (update-entity id rem-c job-kind)
-            (update-entity id set-c (job-ready))
-            (rem-e job-id)
-            (map-dig job-xy)
-            (add-with-prob 0.1 new-stone (job-xy 0) (job-xy 1)))
-        (update-entity w id #(update-in %1 [job-kind :progress] - time)))
-      w)))
-
-(defn system-dig
-  [w time]
-  ;;(update-comps w [:job-dig] try-dig time w)
-  (let [ids (get-cnames-ids w [:job-dig])]
-    (reduce #(try-job %1 %2 :job-dig time) w ids)))
-
 
 
 ;;; Convert stuff

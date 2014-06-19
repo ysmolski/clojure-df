@@ -38,12 +38,12 @@
   (let [c (place w [x y])]
     (if (or (not (s/visible? c))
             (s/diggable? c))
-      (new-job w :dig x y "X")
+      (u/add-job w :dig x y "X")
       w)))
 
 (defmethod on-mouse-designate :build-wall [w action x y]
   (if (s/passable? (place w [x y]))
-    (new-job w :build-wall x y "□")
+    (u/add-job w :build-wall x y "□")
     w))
 
 (defn on-mouse
