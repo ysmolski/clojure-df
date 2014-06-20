@@ -1,4 +1,5 @@
 (ns cg.units
+  "Functions for adding new entities into the world"
   (:require [cg.comps :refer :all]
             [cg.ecs :refer :all]))
 

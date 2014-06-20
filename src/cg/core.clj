@@ -1,4 +1,5 @@
 (ns cg.core
+  (:gen-class)
   (:use cg.common)
   (:use cg.ecs)
   (:use cg.comps)
@@ -7,10 +8,10 @@
   (:use cg.systems.pathfind)
   (:use cg.systems.job-assign)
   (:use cg.systems.job-exec)
-  [:require [cg.site :as s]]
-  [:require [cg.units :as u]]
-  [:require [cg.astar :as astar]]
-  [:require [quil.core :as q]])
+  (:require [cg.astar :as astar]
+            [cg.site :as s]
+            [cg.units :as u]
+            [quil.core :as q]))
 
 (def ui
   {:window-width 1000
@@ -54,16 +55,16 @@
 ;;; values: :move-to :dig :build-wall
 
 (def map-size 100)
-(def game {:world (atom (-> map-size
-                            (s/generate s/new-cell)
-                            (new-ecs)))
+
+(def game {:world (atom nil)
            :viewport (atom [0 0])
            :paused (atom false)
            :mouse-action (atom :move-to)
            :update-time (atom 0)
            :mouse-pos (atom [0 0])})
 
-;;; path finding
+(defn game! [key f & args]
+  (apply swap! (key game) f args))
 
 ;;; view port
 
@@ -252,9 +253,6 @@
 (defn averager [& args]
   (int (/ (apply + args) (count args))))
 
-(defn game! [key f & args]
-  (apply swap! (key game) f args))
-
 (defn updating []
   (loop []
     (let [update-sleep-ms (/ 1000 (float (ui :ups-cap)))
@@ -269,7 +267,8 @@
       (if (> elapsed update-sleep-ms)
         (prn "elapsed:" elapsed update-sleep-ms)
         (Thread/sleep (- update-sleep-ms elapsed)))
-      (recur)))
+      (when @running
+        (recur))))
   nil)
 
 (.start (Thread. updating))
@@ -290,14 +289,19 @@
   (q/smooth)
   (q/frame-rate (ui :fps-cap)))
 
-(q/sketch
- :title "ECS prototype"
- :size [(ui :window-width) (ui :window-height)]
- :renderer :p2d
- :setup setup
- :draw on-draw
- :key-pressed key-press
- :mouse-pressed #(mouse :down)
- :mouse-moved (fn [] (reset! (game :mouse-pos) [(q/mouse-x) (q/mouse-y)]))
-;; :mouse-wheel (fn [] (reset! (game :mouse-pos) [(q/mouse-x) (q/mouse-y)]))
- :on-close (fn [] (reset! running false)))
+(defn launch []
+  (q/sketch
+   :title "ECS prototype"
+   :size [(ui :window-width) (ui :window-height)]
+   :renderer :p2d
+   :setup setup
+   :draw on-draw
+   :key-pressed key-press
+   :mouse-pressed #(mouse :down)
+   :mouse-moved (fn [] (reset! (game :mouse-pos) [(q/mouse-x) (q/mouse-y)]))
+   ;; :mouse-wheel (fn [] (reset! (game :mouse-pos) [(q/mouse-x) (q/mouse-y)]))
+   :on-close (fn [] (reset! running false))))
+
+(defn -main [& args]
+  (launch)
+  (prn :exited))

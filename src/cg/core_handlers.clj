@@ -1,7 +1,9 @@
 (in-ns 'cg.core)
 
 (defn on-start [w]
-  (-> w
+  (-> map-size
+      (s/generate s/new-cell)
+      (new-ecs)
       (new-spawn)))
 
 (defn bound-viewport
@@ -21,6 +23,8 @@
   [w key]
   ;;(set-val w 0 :health :count key)
   (condp = key
+    \q (do (q/exit)
+           w)
     \space (swap! (game :paused) not)
     \f (reset! (game :mouse-action) :dig)
     \g (reset! (game :mouse-action) :move-to)
