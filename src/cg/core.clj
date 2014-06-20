@@ -9,6 +9,7 @@
   (:use cg.systems.job-assign)
   (:use cg.systems.job-exec)
   (:require [cg.astar :as astar]
+            [cg.map :as m]
             [cg.site :as s]
             [cg.units :as u]
             [quil.core :as q]))
@@ -46,7 +47,7 @@
         ]
     (-> w
         (u/add-player xy)
-        (init-visible xy))))
+        (m/init-visible xy))))
 
 ;;; State
 
@@ -127,9 +128,83 @@
 
 (def pix->absolute (comp relative->absolute pix->relative))
 
+
+
 ;;; Events handlers
 
-(load "core_handlers")
+(defn on-start [w]
+  (let [[site rc] (s/generate map-size s/new-cell)]
+    (-> (new-ecs)
+        (m/attach-to-ecs site rc)
+        (new-spawn))))
+
+(defn bound-viewport
+  [[x y] [dx dy]]
+  (let [w (vp-width)
+        h (vp-height)]
+    [(bound (- map-size w) (+ x dx))
+     (bound (- map-size h) (+ y dy))]))
+
+(def key-to-scroll {\w [0 -1]
+                    \s [0 1]
+                    \a [-1 0]
+                    \d [1 0]})
+
+(defn on-key
+  "Handles key presses. Returns new state of the world"
+  [w key]
+  ;;(set-val w 0 :health :count key)
+  (condp = key
+    \p (do (q/exit) w)
+    \space (swap! (game :paused) not)
+    \f (reset! (game :mouse-action) :dig)
+    \g (reset! (game :mouse-action) :move-to)
+    \b (reset! (game :mouse-action) :build-wall)
+    (let [delta (map #(* % (ui :scroll-amount))
+                     (key-to-scroll key [0 0]))]
+      (swap! (game :viewport) bound-viewport delta)
+      ;;(prn delta @(game :viewport))
+      ))
+  w)
+
+(defmulti on-mouse-designate (fn [_ action _ _] action))
+
+(defmethod on-mouse-designate :dig [w action x y]
+  (let [c (place w [x y])]
+    (if (or (not (s/visible? c))
+            (s/diggable? c))
+      (u/add-job w :dig x y "X")
+      w)))
+
+(defmethod on-mouse-designate :build-wall [w action x y]
+  (if (s/passable? (place w [x y]))
+    (u/add-job w :build-wall x y "□")
+    w))
+
+(defn on-mouse
+  [w x y e]
+  ;; (prn x y e)
+  (let [ids (get-cnames-ids w [:controllable])
+        [x y] (pix->relative [x y])
+        [abs-x abs-y] (relative->absolute [x y])
+        action @(game :mouse-action)]
+    (prn abs-x abs-y e action)
+    (if (in-viewport? x y)
+      (cond
+       (= action :move-to) (update-entities w ids set-c (destination abs-x abs-y))
+       (#{:dig :build-wall} action) (on-mouse-designate w action abs-x abs-y)
+       :else w))))
+
+(defn on-tick
+  "Handles ticks of the world, delta is the time passes since last tick"
+  [w time]
+  (-> w
+      (system-move time)
+      (system-guide time)
+      (system-path-find time)
+      (system-assign-jobs time)
+      (system-dig time)
+      ))
 
 ;;; RENDERING STUFF
 
@@ -269,9 +344,7 @@
         (Thread/sleep (- update-sleep-ms elapsed)))
       (when @running
         (recur))))
-  nil)
-
-(.start (Thread. updating))
+  (prn :updating-exited))
 
 ;;; quil handlers 
 
@@ -287,7 +360,12 @@
   (game! :world on-start)
   (q/set-state! :font-monaco (q/create-font "Monaco" (ui :text-size) true))
   (q/smooth)
-  (q/frame-rate (ui :fps-cap)))
+  (q/frame-rate (ui :fps-cap))
+  (.start (Thread. updating)))
+
+(defn on-close []
+  (reset! running false)
+  (prn :sketch-exited))
 
 (defn launch []
   (q/sketch
@@ -300,8 +378,7 @@
    :mouse-pressed #(mouse :down)
    :mouse-moved (fn [] (reset! (game :mouse-pos) [(q/mouse-x) (q/mouse-y)]))
    ;; :mouse-wheel (fn [] (reset! (game :mouse-pos) [(q/mouse-x) (q/mouse-y)]))
-   :on-close (fn [] (reset! running false))))
+   :on-close on-close))
 
 (defn -main [& args]
-  (launch)
-  (prn :exited))
+  (launch))

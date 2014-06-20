@@ -1,76 +1,148 @@
 (ns cg.ecs
+  "Entity component system"
   (:use [clojure.pprint :only [pprint]])
   (:use [clojure.set :only [intersection difference]])
   (:use [cg.queue])
   (:require [cg.site :as s]))
 
-;; all intercations with ecs should go via 
+;;; All interactions with ecs should go via high order functions
+;;; keeping ECS in consistency
 
-(declare get-cnames
-         get-cname-ids
-         rem-c
-         get-c
-         round-coords
-         coords
-         map-add-id
-         map-rem-id)
+;;; Performance note:
+;;; We should update tree on the highest possible level, if you perform
+;;; operations on entity then update it at once, then if possible
+;;; component, or the worst case: value in component.
 
-(defrecord Ecs [id etoc ctoe map map-size rc])
+(declare 
+ rem-c
+ get-c
+ round-coords
+ coords
+ map-add-id
+ map-rem-id)
 
-(defn new-ecs [[map region->cells]]
-  (Ecs. 0 {} {} map (if map (count map) 0) region->cells))
+(defrecord ECS [id etoc ctoe])
 
-;; (defn new-ecs-ref []
-;;   (ref (new-ecs)))
+(defn new-ecs []
+  (ECS. 0 {} {}))
+
+;;;; Components
+
+(defmacro defcomp [name params & r]
+  `(defn ~name ~params
+     (hash-map ::name ~(keyword (clojure.core/name name)) ~@r)))
 
 ;;;; 1st level
 ;;;; internal representation should be hidden
 
-;; FIX: rethink how to handle ::names more properly
-(defn e-name [e]
-  (::name e))
-
-(defn no-name [e]
-  (dissoc e ::name))
+(defn- id [ecs]
+  (:id ecs))
 
 (defn last-id
   "returns id of last added entity"
   [ecs]
   (dec (:id ecs)))
 
-(defn inc-id
+(defn- inc-id
   "returns ECS with increased id counter"
   [ecs]
   (update-in ecs [:id] inc))
 
-(defn dissoc-in
+(defn- dissoc-in
   "removes key in the nested assoc structure using ks as vector of keys"
   [ecs ks key]
   (update-in ecs ks dissoc key))
 
+(defn- pre-set [s val]
+  (if-not s
+    #{val}
+    (conj s val)))
+
+(defn- ctoe-rem-id-cnames
+  [ctoe id cnames]
+  (reduce #(update-in %1 [%2] disj id) ctoe cnames))
+
+(defn- ctoe-add-id-cnames
+  [ctoe id cnames]
+  (reduce #(update-in %1 [%2] pre-set id) ctoe cnames))
+
+(defn- update-e [ecs id entity]
+  (assoc-in ecs [:etoc id] entity))
 
 ;;;; 2nd level
-;;;; interface for ECS
+;;;; read interface for ECS
+
+(defn e-name [e]
+  (::name e))
+
+(defn no-name [e]
+  (dissoc e ::name))
+
+;;; getters
+
+(defn has?
+  "Checks if entity-id has component cname"
+  [ecs entity-id cname]
+  (contains? (get-in ecs [:etoc entity-id]) cname))
+
+(defn get-e
+  "returns entity by id"
+  [ecs entity-id]
+  (get-in ecs [:etoc entity-id]))
+
+(defn get-c
+  "returns component `cname` in entity by `id`"
+  [ecs id cname]
+  (get-in ecs [:etoc id cname]))
+
+;; (defn get-val
+;;   "returns entity-component value"
+;;   [ecs id cname k]
+;;   (get-in ecs [:etoc id cname k]))
+
+(defn get-e-cnames
+  "returns keys of components of entity"
+  [ecs id]
+  (keys (get-in ecs [:etoc id])))
+
+(defn get-cname-ids
+  "Returns ids of entities which have the component
+  specified in cname"
+  [ecs cname]
+  (get-in ecs [:ctoe cname]))
+
+(defn get-cnames-ids
+  "Returns ids of entities which have all the components
+  specified in sequence cnames"
+  [ecs cnames]
+  (apply intersection (map #(set (get-cname-ids ecs %)) cnames)))
+
+(defn get-cnames-ents
+  "return entities which have components specified by seq cnames"
+  [ecs cnames]
+  (map #(get-e ecs %) (get-cnames-ids ecs cnames)))
+
+;;; updaters
 
 (defn add-e
   "adds entity to the ECS. added id should be extracted using last-id function"
   [ecs entity-name]
-  (let [id (:id ecs)]
+  (let [i (id ecs)]
     (-> ecs
         (inc-id)
-        (assoc-in [:etoc id] {::name entity-name}))))
+        (assoc-in [:etoc i] {::name entity-name}))))
 
 (defn rem-e
   "removes entity along with components"
   [ecs entity-id]
   (dissoc-in (reduce #(rem-c %1 entity-id %2)
                      ecs
-                     (get-cnames ecs entity-id))
+                     (get-e-cnames ecs entity-id))
              [:etoc]
              entity-id))
 
 (defn set-c
-  "adds component to entity"
+  "adds component to entity. Two-Arguments version should be passed to update-entity only"
   ([entity comp]
      (let [cname (::name comp)]
        ;; (when (= cname :position)
@@ -83,10 +155,10 @@
              (map-add-id ecs [(:x c) (:y c)] entity-id)
              ecs)
            (assoc-in [:etoc entity-id cname] c-without-name)
-           (assoc-in [:ctoe cname entity-id] 1)))))
+           (update-in [:ctoe cname] pre-set entity-id)))))
 
 (defn rem-c
-  "removes component from entity or ECS"
+  "Removes component from entity. Two-args version should be passed to update-entity only"
   ([entity cname]
      (dissoc entity cname))
   ([ecs entity-id cname]
@@ -96,141 +168,78 @@
              (map-rem-id ecs [(:x c) (:y c)] entity-id))
              ecs)
          (dissoc-in [:etoc entity-id] cname)
-         (dissoc-in [:ctoe cname] entity-id))))
+         (update-in [:ctoe cname] disj entity-id))))
 
-(defn has?
-  "checks is entity contains component"
-  [ecs entity-id cname]
-  (contains? (get-in ecs [:etoc entity-id]) cname))
 
-(defn get-e-name
-  "returns name of entity by id"
-  [ecs id]
-  (get-in ecs [:etoc id ::name]))
-
-(defn get-e
-  "returns entity by id"
-  [ecs entity-id]
-  (get-in ecs [:etoc entity-id]))
-
-(defn get-c
-  "returns component `cname` in entity by `id`"
-  [ecs id cname]
-  (get-in ecs [:etoc id cname]))
-
-(defn get-val
-  "returns entity-component value"
-  [ecs id cname k]
-  (get-in ecs [:etoc id cname k]))
-
-(defn get-cnames
-  "returns keys of components of entity"
-  [ecs id]
-  (keys (get-in ecs [:etoc id])))
-
-(defn get-cname-ids
-  "Returns ids of entities which have the component
-  specified in cname"
-  [ecs cname]
-  (keys (get-in ecs [:ctoe cname])))
-
-(defn get-cnames-ids
-  "Returns ids of entities which have all the components
-  specified in sequence cnames"
-  [ecs cnames]
-  (apply intersection (map #(set (get-cname-ids ecs %)) cnames)))
-
-(defn get-cnames-ents
-  "return entities which have components specified by seq cnames"
-  [ecs cnames]
-  (map #(get-e ecs %) (get-cnames-ids ecs cnames)))
-  
-;; not sure. is it needed???
-(defn update-comp
-  "updates whole component using function f and args"
-  [ecs id cname f & args]
-  (apply update-in ecs [:etoc id cname] f args))
-
-(defn update-val
-  "updates value in the component using function f and args"
-  [ecs id cname k f & args]
-  (apply update-in ecs [:etoc id cname k] f args))
-
-(defn removed-added [a b]
+(defn- removed-added [a b]
   (let [a (set a)
         b (set b)]
     [(difference a b)
      (difference b a)]))
 
-(defn ctoe-rem-id-cnames
-  [ctoe id cnames]
-  (reduce #(dissoc-in %1 [%2] id) ctoe cnames))
 
-(defn ctoe-add-id-cnames
-  [ctoe id cnames]
-  (reduce #(assoc-in %1 [%2 id] 1) ctoe cnames))
-
-(defn- update-e [ecs id entity]
-  (assoc-in ecs [:etoc id] entity))
-
-(defn update-map-position [ecs id e1 e2]
-  (let [[x1 y1] (round-coords (:position e1))
-        [x2 y2] (round-coords (:position e2))]
-    (if (or (not= x1 x2)
-            (not= y1 y2))
-      (-> ecs
-          (map-rem-id [x1 y1] id)
-          (map-add-id [x2 y2] id))
-      ecs)))
+(defn- update-map-position [ecs id e1 e2]
+  (if (and (contains? e1 :position)
+           (contains? e2 :position))
+    (let [[x1 y1] (round-coords (:position e1))
+          [x2 y2] (round-coords (:position e2))]
+      (if (or (not= x1 x2)
+              (not= y1 y2))
+        (-> ecs
+            (map-rem-id [x1 y1] id)
+            (map-add-id [x2 y2] id))
+        ecs))
+    ecs))
 
 
-;; public interfaces
+;;; 3rd level
+;;; Public 
 
 (defn update-entity
-  "Takes entity by id and calls function f with entity and args as parameters.
-  Returned entity is updated into ECS"
+  "Takes entity by id and calls function (f entity & args).
+  Returned entity is updated into ECS.
+  If components were added/removed then update ctoe as well."
   [ecs id f & args]
   (let [e (get-e ecs id)
         r (apply f e args)
         ke (keys e)
         kr (keys r)
         ecs (update-map-position ecs id e r)]
-    ;; (prn :update-e id f (count args))
+    #_(prn :update-e id f (count args))
     (if (not= ke kr)
       (let [[removed added] (removed-added ke kr)]
-        ;; (prn ke '-> kr 'rem removed 'add added)
+        #_(prn ke '-> kr 'rem removed 'add added)
         (-> ecs 
-            (assoc :ctoe (-> (:ctoe ecs)
-                             (ctoe-rem-id-cnames id removed)
-                             (ctoe-add-id-cnames id added)))
+            (update-in [:ctoe] ctoe-rem-id-cnames id removed)
+            (update-in [:ctoe] ctoe-add-id-cnames id added)
             (update-e id r)))
       (update-e ecs id r))))
 
 (defn update-entities
+  "Update multiple entities (ids) using function (f entity & args)"
   [ecs ids f & args]
   (reduce #(apply update-entity %1 %2 f args) ecs ids))
 
 (defn update-comps
-  "update entities in ECS which has comp-names with function entity-update-fn"
-  [ecs comp-names entity-update-fn & args]
+  "update entities which have components-names using (f entity & args)"
+  [ecs comp-names f & args]
   (let [ids (get-cnames-ids ecs comp-names)]
-    (apply update-entities ecs ids entity-update-fn args)))
+    (apply update-entities ecs ids f args)))
 
+;; DEPRECATED: not sure. is it needed???
 ;; (defn set-val
 ;;   "sets value in the component"
 ;;   [ecs id cname k val]
 ;;   (assoc-in ecs [:etoc id cname k] val))
+;; (defn update-comp
+;;   "updates whole component using function f and args"
+;;   [ecs id cname f & args]
+;;   (apply update-in ecs [:etoc id cname] f args))
+;; (defn update-val
+;;   "updates value in the component using function f and args"
+;;   [ecs id cname k f & args]
+;;   (apply update-in ecs [:etoc id cname k] f args))
 
-;; Performance note:
-;; We should update tree on the highest possible level, if you perform
-;; operations on entity then update it at once, then if possible
-;; component, or the worst case: value in component.
-
-;;;; Components
-
-(defmacro defcomp [name params & r]
-  `(defn ~name ~params
-     (hash-map ::name ~(keyword (clojure.core/name name)) ~@r)))
 
 ;;;; Systems
 
@@ -241,7 +250,7 @@
 
 (defn load-entity
   "Loads anentity of `ename` and vector of components into ECS"
-  [ecs ename comps]
+  [ecs ename & comps]
   (let [s (add-e ecs ename)
         id (last-id s)]
     (reduce #(set-c %1 id %2) s comps)))
@@ -299,63 +308,6 @@
     (reduce f ecs cells)))
 
 
-;; visible system
-
-(defn init-visible
-  "updates cells visibility from point [x y] using region->cells hash"
-  [w xy]
-  (let [r (s/region (:map w) xy)
-        cells (s/rc-cells (:rc w) r)]
-    (update-in w [:map] s/add-visibles cells)))
-
-
-;; dig system
-
-(defn add-region
-  "Sets cell [x y] to the region r and sets visible for it"
-  [ecs [x y] r]
-  ;; (prn (place ecs [x y]))
-  (-> ecs
-      (update-in [:map] s/add-visible (:map-size ecs) [x y])
-      (region [x y] r)
-      (update-in [:rc] s/rc-add r [x y])))
-
-(defn move-region
-  "Adds region old-r to region new-r and updates map.
-  If region old-r visible then it makes new-r visible and vise versa."
-  [ecs old-r new-r]
-  (let [cells (s/rc-cells (:rc ecs) old-r)
-        hidden-cells (if (s/visible (:map ecs) (first cells))
-                       (s/rc-cells (:rc ecs) new-r)
-                       cells)]
-    (-> (reduce #(region %1 %2 new-r) ecs cells)
-        (update-in [:map] s/add-visibles hidden-cells)
-        (update-in [:rc] s/rc-move old-r new-r)
-        (rem-ents-in-cells [:job] hidden-cells))))
-
-(defn update-region
-  "Adds region for cell xy based on neighbour cells.
-  Chooses biggest neighbour region and renames other regions to it.
-  Sets :visibible for all Neighbour regions"
-  [ecs [x y]]
-  (let [rs (s/nbrs-regions (:map ecs) (:map-size ecs) [x y])]
-    (if (= 1 (count rs))
-      (add-region ecs [x y] (first rs))
-      (let [sorted-regions (s/rc-biggest-area (:rc ecs) rs)
-            big (first sorted-regions)
-            other (rest sorted-regions)]
-        (prn :update-region sorted-regions)
-        (-> (reduce #(move-region %1 %2 big) ecs other)
-            (add-region [x y] big))))))
-
-
-(defn map-dig
-  "Digs cell in position and puts floor into the place.
-  Also updates region of newly dug cell."
-  [ecs xy]
-  (-> ecs
-      (form xy :floor)
-      (update-region xy)))
 
 
 ;;;; -------------------------

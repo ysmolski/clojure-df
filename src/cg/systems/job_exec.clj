@@ -3,7 +3,7 @@
   [:use cg.ecs]
   [:use cg.comps]
   [:require [cg.ecs :as e]]
-  [:require [cg.site :as s]]
+  [:require [cg.map :as m]]
   [:require [cg.units :as u]]
   [:require [cg.astar :as astar]])
 
@@ -23,14 +23,14 @@
         job-xy (coords (e job-kind))
         {job-id :id
          progress :progress} (job-kind e)]
-    ;; (prn :job-do job-kind e-xy job-xy progress)
+    #_(prn :job-do job-kind e-xy job-xy progress)
     (if (contacting? e-xy job-xy)
       (if (neg? progress)
         (-> w
             (update-entity id rem-c job-kind)
             (update-entity id set-c (job-ready))
             (rem-e job-id)
-            (map-dig job-xy)
+            (m/dig job-xy)
             (add-with-prob 0.1 u/add-stone (job-xy 0) (job-xy 1)))
         (update-entity w id #(update-in %1 [job-kind :progress] - time)))
       w)))

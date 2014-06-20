@@ -54,8 +54,7 @@
 (defn system-assign-jobs
   "take free workers and find next (closest?) jobs for them"
   [w time]
-  (let [res (assign-jobs w time)]
-    (if res
-      res
-      w)))
+  (if-let [res (assign-jobs w time)]
+    res
+    w))
 

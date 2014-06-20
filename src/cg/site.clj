@@ -220,8 +220,8 @@
             (recur m more uf last-region passables)))
         [m uf passables]))))
 
-(defn init-regions
-  "returns map with cells being marked with same numbers
+(defn- init-regions
+  "Returns [map regions->cells] with cells being marked with same numbers
   if they belong to the same connected region"
   [m]
   (let [[m uf passables] (scan-regions m)
@@ -242,7 +242,9 @@
   (let [size (count m)]
     (reduce #(add-visible %1 size %2) m cells)))
 
-(defn generate [size cell-fn]
+(defn generate
+  "returns [map rc]"
+  [size cell-fn]
   (let [m (vec-2d size cell-fn)]
     (-> m
         (add-borders)
