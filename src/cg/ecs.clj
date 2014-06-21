@@ -73,10 +73,10 @@
 ;;;; read interface for ECS
 
 (defn e-name [e]
-  (::name e))
+  "")
 
 (defn no-name [e]
-  (dissoc e ::name))
+  e)
 
 ;;; getters
 
@@ -130,7 +130,7 @@
   (let [i (id ecs)]
     (-> ecs
         (inc-id)
-        (assoc-in [:etoc i] {::name entity-name}))))
+        (assoc-in [:etoc i] {}))))
 
 (defn rem-e
   "removes entity along with components"
@@ -166,7 +166,7 @@
            (let [c (get-c ecs entity-id cname)]
              ;;(prn entity-id c)
              (map-rem-id ecs [(:x c) (:y c)] entity-id))
-             ecs)
+           ecs)
          (dissoc-in [:etoc entity-id] cname)
          (update-in [:ctoe cname] disj entity-id))))
 
@@ -177,6 +177,12 @@
     [(difference a b)
      (difference b a)]))
 
+
+(defn map-add-id [ecs [x y] id]
+  (update-in ecs [:map (int x) (int y) :ids] conj id))
+
+(defn map-rem-id [ecs [x y] id]
+  (update-in ecs [:map (int x) (int y) :ids] disj id))
 
 (defn- update-map-position [ecs id e1 e2]
   (if (and (contains? e1 :position)
@@ -195,25 +201,30 @@
 ;;; 3rd level
 ;;; Public 
 
+(defn- update-ctoe
+  "Updates ctoe according changes happened in entity id from state a to state b"
+  [ecs id a b]
+  (let [a (keys a)
+        b (keys b)]
+    (if (= a b)
+      ecs
+      (let [[removed added] (removed-added a b)]
+        (-> ecs 
+            (update-in [:ctoe] ctoe-rem-id-cnames id removed)
+            (update-in [:ctoe] ctoe-add-id-cnames id added))))))
+
 (defn update-entity
   "Takes entity by id and calls function (f entity & args).
   Returned entity is updated into ECS.
   If components were added/removed then update ctoe as well."
   [ecs id f & args]
   (let [e (get-e ecs id)
-        r (apply f e args)
-        ke (keys e)
-        kr (keys r)
-        ecs (update-map-position ecs id e r)]
+        result (apply f e args)
+        ecs (update-map-position ecs id e result)]
     #_(prn :update-e id f (count args))
-    (if (not= ke kr)
-      (let [[removed added] (removed-added ke kr)]
-        #_(prn ke '-> kr 'rem removed 'add added)
-        (-> ecs 
-            (update-in [:ctoe] ctoe-rem-id-cnames id removed)
-            (update-in [:ctoe] ctoe-add-id-cnames id added)
-            (update-e id r)))
-      (update-e ecs id r))))
+    (-> ecs
+        (update-ctoe id e result)
+        (update-e id result))))
 
 (defn update-entities
   "Update multiple entities (ids) using function (f entity & args)"
@@ -267,6 +278,7 @@
 
 ;;; MAP operations
 ;;; --------------------------------------------------------------------------------
+;;; move them to cg.map
 
 (defn round-coords [c]
   [(Math/round (:x c))
@@ -285,11 +297,6 @@
 (defn region [ecs [x y] val]
   (update-in ecs [:map] s/region [(int x) (int y)] val))
 
-(defn map-add-id [ecs [x y] id]
-  (update-in ecs [:map (int x) (int y) :ids] conj id))
-
-(defn map-rem-id [ecs [x y] id]
-  (update-in ecs [:map (int x) (int y) :ids] disj id))
 
 (defn rem-if-in-cell
   "Removes from ECS entities found in cell xy for which (pred entity-id) is true"
