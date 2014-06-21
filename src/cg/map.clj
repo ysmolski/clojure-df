@@ -12,8 +12,26 @@
         cells (s/rc-cells (:rc w) r)]
     (update-in w [:map] s/add-visibles cells)))
 
+(defn map-add-id [ecs [x y] id]
+  (update-in ecs [:map (int x) (int y) :ids] conj id))
+
+(defn map-rem-id [ecs [x y] id]
+  (update-in ecs [:map (int x) (int y) :ids] disj id))
+
+(defn- update-position [ecs id e1 e2]
+  (let [p1 (:position e1)
+        p2 (:position e2)]
+    (-> ecs
+        (#(if p1 (map-rem-id % (round-coords p1) id) %))
+        (#(if p2 (map-add-id % (round-coords p2) id) %)))))
+
 (defn attach-to-ecs [ecs map rc]
-  (assoc ecs :map map :map-size (count map) :rc rc))
+  (-> ecs
+      (assoc
+          :map map
+          :map-size (count map)
+          :rc rc)
+      (add-update-fn update-position)))
 
 ;; dig system
 

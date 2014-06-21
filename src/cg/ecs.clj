@@ -1,5 +1,6 @@
 (ns cg.ecs
   "Entity component system"
+  (:use midje.sweet)
   (:use [clojure.pprint :only [pprint]])
   (:use [clojure.set :only [intersection difference]])
   (:use [cg.queue])
@@ -17,14 +18,12 @@
  rem-c
  get-c
  round-coords
- coords
- map-add-id
- map-rem-id)
+ coords)
 
-(defrecord ECS [id etoc ctoe])
+(defrecord ECS [id etoc ctoe fn])
 
 (defn new-ecs []
-  (ECS. 0 {} {}))
+  (ECS. 0 {} {} {:update #{} :set #{} :rem #{}}))
 
 ;;;; Components
 
@@ -72,12 +71,6 @@
 ;;;; 2nd level
 ;;;; read interface for ECS
 
-(defn e-name [e]
-  "")
-
-(defn no-name [e]
-  e)
-
 ;;; getters
 
 (defn has?
@@ -122,6 +115,29 @@
   [ecs cnames]
   (map #(get-e ecs %) (get-cnames-ids ecs cnames)))
 
+;;; event handlers
+
+(defn add-update-fn
+  "Add function which will be called everytime update-entity is happening.
+  It is called in such way: (f ecs id a b) where id is of entity,
+  a, b - entity before and after update fn."
+  [ecs f]
+  (update-in ecs [:fn :update] conj f))
+
+(defn get-update-fns [ecs]
+  (get-in ecs [:fn :update]))
+
+(defn- run-fns
+  [ecs fns & args]
+  (reduce #(apply %2 %1 args) ecs fns))
+
+(fact "run-fns"
+ (run-fns 0 [#(inc %) #(* 3 %)]) => 3)
+
+(defn- apply-update-fns
+  [ecs & args]
+  (apply run-fns ecs (get-update-fns ecs) args))
+
 ;;; updaters
 
 (defn add-e
@@ -145,16 +161,16 @@
   "adds component to entity. Two-Arguments version should be passed to update-entity only"
   ([entity comp]
      (let [cname (::name comp)]
-       ;; (when (= cname :position)
-       ;;   (prn :setc entity))
        (assoc entity cname (dissoc comp ::name))))
   ([ecs entity-id c]
      (let [cname (::name c)
-           c-without-name (dissoc c ::name)]
-       (-> (if (= cname :position)
-             (map-add-id ecs [(:x c) (:y c)] entity-id)
-             ecs)
-           (assoc-in [:etoc entity-id cname] c-without-name)
+           c-without-name (dissoc c ::name)
+           e (get-e ecs entity-id)]
+       (-> (apply-update-fns ecs entity-id nil e)
+           #_(if (= cname :position)
+               (map-add-id ecs [(:x c) (:y c)] entity-id)
+               ecs)
+           (update-in [:etoc entity-id] assoc cname c-without-name)
            (update-in [:ctoe cname] pre-set entity-id)))))
 
 (defn rem-c
@@ -162,11 +178,12 @@
   ([entity cname]
      (dissoc entity cname))
   ([ecs entity-id cname]
-     (-> (if (= cname :position)
+     (-> #_(if (= cname :position)
            (let [c (get-c ecs entity-id cname)]
              ;;(prn entity-id c)
              (map-rem-id ecs [(:x c) (:y c)] entity-id))
            ecs)
+         (apply-update-fns ecs entity-id (get-e ecs entity-id) nil)
          (dissoc-in [:etoc entity-id] cname)
          (update-in [:ctoe cname] disj entity-id))))
 
@@ -176,26 +193,6 @@
         b (set b)]
     [(difference a b)
      (difference b a)]))
-
-
-(defn map-add-id [ecs [x y] id]
-  (update-in ecs [:map (int x) (int y) :ids] conj id))
-
-(defn map-rem-id [ecs [x y] id]
-  (update-in ecs [:map (int x) (int y) :ids] disj id))
-
-(defn- update-map-position [ecs id e1 e2]
-  (if (and (contains? e1 :position)
-           (contains? e2 :position))
-    (let [[x1 y1] (round-coords (:position e1))
-          [x2 y2] (round-coords (:position e2))]
-      (if (or (not= x1 x2)
-              (not= y1 y2))
-        (-> ecs
-            (map-rem-id [x1 y1] id)
-            (map-add-id [x2 y2] id))
-        ecs))
-    ecs))
 
 
 ;;; 3rd level
@@ -220,7 +217,7 @@
   [ecs id f & args]
   (let [e (get-e ecs id)
         result (apply f e args)
-        ecs (update-map-position ecs id e result)]
+        ecs (apply-update-fns ecs id e result)]
     #_(prn :update-e id f (count args))
     (-> ecs
         (update-ctoe id e result)

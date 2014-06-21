@@ -262,9 +262,8 @@
 
 (defn entity-info-str [w id]
   (let [e (get-e w id)
-        n (e-name e)
-        en (sort-by #(nth % 0) (vec (no-name e)))]
-    (apply str (interpose "\n " (into [n] en)))))
+        en (sort-by #(nth % 0) (vec e))]
+    (apply str (interpose "\n " (into [] en)))))
 
 (defn draw-info
   "display info for the cell by abs position: x, y"
