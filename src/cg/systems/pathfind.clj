@@ -2,8 +2,7 @@
   [:use cg.ecs]
   [:use cg.comps]
   [:require [cg.site :as s]]
-  [:require [cg.astar :as astar]]
-)
+  [:require [cg.astar :as astar]])
 
 ;;; PATH FIND SYSTEM
 

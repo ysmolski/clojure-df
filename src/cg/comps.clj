@@ -10,6 +10,14 @@
            :free-job [:job :free]
            })
 
+(defn round-coords [c]
+  [(Math/round (:x c))
+   (Math/round (:y c))])
+
+(defn coords [c]
+  [(:x c)
+   (:y c)])
+
 (defcomp health []
   :dead false
   :count 100)

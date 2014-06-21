@@ -170,14 +170,14 @@
 (defmulti on-mouse-designate (fn [_ action _ _] action))
 
 (defmethod on-mouse-designate :dig [w action x y]
-  (let [c (place w [x y])]
+  (let [c (m/place w [x y])]
     (if (or (not (s/visible? c))
             (s/diggable? c))
       (u/add-job w :dig x y "X")
       w)))
 
 (defmethod on-mouse-designate :build-wall [w action x y]
-  (if (s/passable? (place w [x y]))
+  (if (s/passable? (m/place w [x y]))
     (u/add-job w :build-wall x y "□")
     w))
 
@@ -246,7 +246,7 @@
 (defn draw-site [w [vp-x vp-y width height]]
   (doseq [x (range width)
           y (range height)]
-    (let [cell (place w [(+ vp-x x) (+ vp-y y)])]
+    (let [cell (m/place w [(+ vp-x x) (+ vp-y y)])]
       (draw-tile cell x y))))
 
 (defn draw-world [w viewport]
@@ -272,7 +272,7 @@
         abs (relative->absolute [x y])]
     (when (in-viewport? x y)
       ;; (prn :draw-info x y abs)
-      (let [cell (place w abs)
+      (let [cell (m/place w abs)
             ids (:ids cell)
             entities (map #(entity-info-str w %) ids)]
         (q/text (str (abs 0) " " (abs 1) "\n"

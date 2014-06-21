@@ -16,9 +16,7 @@
 
 (declare 
  rem-c
- get-c
- round-coords
- coords)
+ get-c)
 
 (defrecord ECS [id etoc ctoe fn])
 
@@ -272,64 +270,3 @@
           ecs
           (seq scene)))
 
-
-;;; MAP operations
-;;; --------------------------------------------------------------------------------
-;;; move them to cg.map
-
-(defn round-coords [c]
-  [(Math/round (:x c))
-   (Math/round (:y c))])
-
-(defn coords [c]
-  [(:x c)
-   (:y c)])
-
-(defn place [ecs [x y]]
-  (get-in ecs [:map (int x) (int y)]))
-
-(defn form [ecs [x y] val]
-  (update-in ecs [:map] s/form [(int x) (int y)] val))
-
-(defn region [ecs [x y] val]
-  (update-in ecs [:map] s/region [(int x) (int y)] val))
-
-
-(defn rem-if-in-cell
-  "Removes from ECS entities found in cell xy for which (pred entity-id) is true"
-  [pred ecs xy]
-  (let [cell-ids (:ids (place ecs xy))]
-    ;; (prn :rem-if-in-cell xy cell-ids)
-    (reduce #(if (pred %2) (rem-e %1 %2) %1) ecs cell-ids)))
-
-;; FIX: add check if the job is actuall job dig
-(defn rem-ents-in-cells
-  "Gets ids which have component cnames and if those ids are found in cells, removes them
-  from map and ecs completely."
-  [ecs cnames cells]
-  (let [ids (get-cnames-ids ecs cnames)
-        f (partial rem-if-in-cell #(contains? ids %))]
-    (reduce f ecs cells)))
-
-
-
-
-;;;; -------------------------
-
-(comment
-  (defn test-run [s cycles]
-    (loop [s s
-           n cycles]
-      (if (> n 0)
-        (recur
-         (-> s
-             (set-val 0 :health :count 1))
-         (dec n))
-        s)))
-
-  (let [s (-> (new-ecs)
-              (add-e :player)
-              (add-e :mob)
-              (set-c 0 (health))
-              (set-c 1 (health)))]
-    (prn (time (prn (test-run s 1000000))))))

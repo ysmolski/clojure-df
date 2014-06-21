@@ -1,7 +1,35 @@
 (ns cg.map
   "High level operations on ECS (both map and ecs entities)"
-  (:require [cg.ecs :refer :all]
+  (:require [cg.comps :refer :all]
+            [cg.ecs :refer :all]
             [cg.site :as s]))
+
+
+(defn place [ecs [x y]]
+  (get-in ecs [:map (int x) (int y)]))
+
+(defn form [ecs [x y] val]
+  (update-in ecs [:map] s/form [(int x) (int y)] val))
+
+(defn region [ecs [x y] val]
+  (update-in ecs [:map] s/region [(int x) (int y)] val))
+
+
+(defn rem-if-in-cell
+  "Removes from ECS entities found in cell xy for which (pred entity-id) is true"
+  [pred ecs xy]
+  (let [cell-ids (:ids (place ecs xy))]
+    ;; (prn :rem-if-in-cell xy cell-ids)
+    (reduce #(if (pred %2) (rem-e %1 %2) %1) ecs cell-ids)))
+
+;; FIX: add check if the job is actuall job dig
+(defn rem-ents-in-cells
+  "Gets ids which have component cnames and if those ids are found in cells, removes them
+  from map and ecs completely."
+  [ecs cnames cells]
+  (let [ids (get-cnames-ids ecs cnames)
+        f (partial rem-if-in-cell #(contains? ids %))]
+    (reduce f ecs cells)))
 
 ;; visible system
 
