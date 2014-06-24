@@ -9,7 +9,7 @@
 (defcomp c3 [a] :a a)
 
 (fact "about generating ecs"
- (keys (new-ecs)) => [:id :etoc :ctoe :fn]
+ (keys (new-ecs)) => [:id :etoc :ctoe :hooks]
  (last-id (add-e (new-ecs) :u)) => 0)
 
 (fact "about loading entity"
@@ -52,7 +52,7 @@
    (get-cnames-ids e [:c1 :c2]) => #{0 1})
 
   (let [e (assoc e :test 0)
-        e (add-update-fn e (fn [ecs id a b]
+        e (add-update-hook e (fn [ecs id a b]
                              (update-in ecs [:test] inc)))]
     (fact "about updating entity with attached update handler"
      (update-entity e 0 (fn [e] e)) => (contains {:test 1}))

@@ -6,5 +6,7 @@
   :main cg.core
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [quil "2.0.0"]
-                 [org.jordanlewis/data.union-find "0.1.0"]]
-  :profiles {:dev {:dependencies [[midje "1.6.3"]]}})
+                 [org.jordanlewis/data.union-find "0.1.0"]
+                 [midje "1.6.3"]
+                 ]
+  :profiles {:dev {:dependencies []}})

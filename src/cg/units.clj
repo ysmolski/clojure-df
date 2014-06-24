@@ -21,6 +21,6 @@
                (speed 10)
                (position (float x) (float y))
                (controllable)
-               (renderable "D")
+               (renderable :char)
                (job-ready)))
 

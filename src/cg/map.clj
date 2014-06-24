@@ -59,7 +59,7 @@
           :map map
           :map-size (count map)
           :rc rc)
-      (add-update-fn update-position)))
+      (add-update-hook update-position)))
 
 ;; dig system
 

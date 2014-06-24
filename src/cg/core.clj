@@ -14,22 +14,25 @@
             [cg.units :as u]
             [quil.core :as q]))
 
+;; (set! *warn-on-reflection* true) 
+;; (set! *unchecked-math* true)
+
 (def ui
-  {:window-width 1000
+  {:window-width 1200
    :window-height 700
    :right-panel-width 300
    :window-border 10
    :tile-size 16
    :text-size 15
    :text-size-small 10
-   :char-color 200
+   :char-color 250
    :ui-color 40
    :wall-color 80
    :background-color 25
    :foreground-color 200
    :scroll-amount 10
    :fps-cap 60
-   :ups-cap 45
+   :ups-cap 60
    })
 
 (declare pos2pix pix2pos epos2pix pos-middle tiles on-draw on-draw on-draw)
@@ -41,13 +44,15 @@
             :beast [;;(health)
                     (position 15 15)
                     (renderable "b")]})
-(defn new-spawn [w]
+(defn new-player [w]
   (let [xy (s/random-place (:map w) s/passable? 40 40)
         ;;xy (first (s/rc-cells (:rc w) (first (s/rc-smallest-area (:rc w)))))
         ]
-    (-> w
-        (u/add-player xy)
-        (m/init-visible xy))))
+    (u/add-player w xy)))
+
+(defn new-spawn [w]
+  (-> (apply-times w 1 new-player)
+      (m/init-visible (s/random-place (:map w) s/passable? 40 40))))
 
 ;;; State
 
@@ -60,9 +65,10 @@
 (def game {:world (atom nil)
            :viewport (atom [0 0])
            :paused (atom false)
-           :mouse-action (atom :move-to)
+           :mouse-action (atom :dig)
            :update-time (atom 0)
-           :mouse-pos (atom [0 0])})
+           :mouse-pos (atom [0 0])
+           :tiles (atom {})})
 
 (defn game! [key f & args]
   (apply swap! (key game) f args))
@@ -128,7 +134,18 @@
 
 (def pix->absolute (comp relative->absolute pix->relative))
 
-
+(defn dig-all [w]
+  (loop [w w
+         cells (s/range-2d 1 (dec (count (:map w))))]
+    (if-let [fc (first cells)]
+      (let [rc (rest cells)
+            c (m/place w fc)
+            [x y] fc]
+        (if (and (s/visible? c)
+                 (s/diggable? c))
+          (recur (u/add-job w :dig x y "X") rc)
+          (recur w rc)))
+      w)))
 
 ;;; Events handlers
 
@@ -136,7 +153,8 @@
   (let [[site rc] (s/generate map-size s/new-cell)]
     (-> (new-ecs)
         (m/attach-to-ecs site rc)
-        (new-spawn))))
+        (new-spawn)
+        #_(dig-all))))
 
 (defn bound-viewport
   [[x y] [dx dy]]
@@ -216,48 +234,66 @@
           (- (epos2pix x) 4)
           (+ (epos2pix y) 7)))
 
-(defn draw-ents [[vp-x vp-y w h] ents]
+(defn image
+  "x and y are tiles coordinates"
+  [t x y]
+  (q/image t
+           (+ (epos2pix (dec x)) 8)
+           (+ (epos2pix (dec y)) 8)
+           (:tile-size ui) (:tile-size ui)))
+
+(defn draw-ents [[vp-x vp-y w h] ents tiles]
   (doseq [e ents]
     (let [m (e :position)
           r (e :renderable)
+          ch (:char r)
           x (- (m :x) vp-x)
           y (- (m :y) vp-y)]
       (if (and (< 0 x w)
                (< 0 y h))
-        (text (r :char) x y)))))
+        
+        (if (keyword? ch)
+          (image (ch tiles) x y)
+          (text ch x y))))))
 
 (defn draw-rect [x y color]
   (q/fill color)
   (q/rect (pos2pix x)
-              (pos2pix y)
-              (ui :tile-size)
-              (ui :tile-size)))
+          (pos2pix y)
+          (ui :tile-size)
+          (ui :tile-size)))
 
-(defn draw-tile [cell x y]
-  (if (s/visible? cell)
+(defn draw-tile [cell x y tiles]
+  (when (s/visible? cell)
     (do
       (when-not (s/passable? cell)
-        (draw-rect x y (ui :wall-color)))
+        (image (:stone tiles) x y))
       (when-let [r (:region cell)]
-        (text (str r) x y)))
-    (do
-      (draw-rect x y 0))))
+        (image (:grass tiles) x y)
+        #_(draw-rect x y 60)
+        #_(text (str r) x y)))))
 
-(defn draw-site [w [vp-x vp-y width height]]
-  (doseq [x (range width)
-          y (range height)]
-    (let [cell (m/place w [(+ vp-x x) (+ vp-y y)])]
-      (draw-tile cell x y))))
+(defn draw-site [w f [vp-x vp-y width height] tiles]
+  #_(q/fill 0)
+  #_(q/rect (pos2pix 0)
+          (pos2pix 0)
+          (pos2pix (dec width))
+          (pos2pix (dec height)))
+  (let [m (:map w)]
+    (doseq [x (range width)
+            y (range height)]
+      (let [cell (s/place m [(+ vp-x x) (+ vp-y y)])]
+        (f cell x y tiles)))))
 
-(defn draw-world [w viewport]
+(defn draw-world [w viewport tiles]
   ;(q/text (str (get-cname-ids w :renderable)) 10 390)
   (q/fill (ui :wall-color))
   (q/text-font (q/state :font-monaco) (ui :text-size-small))
   (q/no-stroke)
-  (draw-site w viewport)
+  (draw-site w draw-tile viewport tiles)
   (q/fill (ui :char-color))
   (q/text-font (q/state :font-monaco) (ui :text-size))
-  (draw-ents viewport (get-cnames-ents w (node :render)))
+  (draw-ents viewport (get-cnames-ents w (node :render)) tiles)
   )
 
 (defn entity-info-str [w id]
@@ -290,8 +326,12 @@
         width (vp-width)
         height (vp-height)
         viewport (viewport)
-        mouse-pos @(game :mouse-pos)]
+        mouse-pos @(game :mouse-pos)
+        tiles @(:tiles game)
+        ]
     (q/background-float (ui :background-color))
+    
+    ;;(prn tiles)
     
     ;; draw grid
     ;; (q/stroke-weight 1)
@@ -314,7 +354,7 @@
     (q/text (str @(game :mouse-action)) (pos2pix 9) (pos2pix (inc height)))
     (q/text (str mouse-pos) (pos2pix 16) (pos2pix (inc height)))
 
-    (draw-world world viewport)
+    (draw-world world viewport tiles)
 
     (q/text-font (q/state :font-monaco) (ui :text-size-small))
 
@@ -358,7 +398,16 @@
 (defn setup []
   (game! :world on-start)
   (q/set-state! :font-monaco (q/create-font "Monaco" (ui :text-size) true))
-  (q/smooth)
+  (reset! (:tiles game) {:grass (q/load-image "/Users/thorn/grass.png")
+                         :stone (q/load-image "/Users/thorn/stone.png")
+                         :char (q/load-image "/Users/thorn/char.png")})
+
+  (prn @(:tiles game))
+  
+  (q/hint :enable-depth-test)
+  (q/hint :disable-retina-pixels)
+  (q/no-smooth)
+  (q/image-mode :corner)
   (q/frame-rate (ui :fps-cap))
   (.start (Thread. updating)))
 

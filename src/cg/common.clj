@@ -41,3 +41,8 @@
 (defn contacting? [[x1 y1] [x2 y2]]
   (and (>= 1 (Math/abs (- x1 x2)))
        (>= 1 (Math/abs (- y1 y2)))))
+
+(defn apply-times
+  "N time applies w&args to f and then result is applied as w"
+  [w n f & args]
+  (reduce (fn [w _] (apply f w args)) w (range n)))

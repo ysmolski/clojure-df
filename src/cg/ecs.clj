@@ -14,11 +14,9 @@
 ;;; operations on entity then update it at once, then if possible
 ;;; component, or the worst case: value in component.
 
-(declare 
- rem-c
- get-c)
+(declare rem-c get-c)
 
-(defrecord ECS [id etoc ctoe fn])
+(defrecord ECS [id etoc ctoe hooks])
 
 (defn new-ecs []
   (ECS. 0 {} {} {:update #{} :set #{} :rem #{}}))
@@ -115,28 +113,31 @@
 
 ;;; event handlers
 
-(defn add-update-fn
+(defn add-update-hook
   "Add function which will be called everytime update-entity is happening.
   It is called in such way: (f ecs id a b) where id is of entity,
   a, b - entity before and after update fn."
   [ecs f]
-  (update-in ecs [:fn :update] conj f))
+  (update-in ecs [:hooks :update] conj f))
 
 (defn get-update-fns [ecs]
-  (get-in ecs [:fn :update]))
+  (get-in ecs [:hooks :update]))
 
 (defn- run-fns
   [ecs fns & args]
   (reduce #(apply %2 %1 args) ecs fns))
 
-(fact "run-fns"
- (run-fns 0 [#(inc %) #(* 3 %)]) => 3)
+;; (fact "run-fns"
+;;  (run-fns 0 [#(inc %) #(* 3 %)]) => 3)
 
 (defn- apply-update-fns
   [ecs & args]
   (apply run-fns ecs (get-update-fns ecs) args))
 
 ;;; updaters
+
+;;; 3rd level
+;;; Public 
 
 (defn add-e
   "adds entity to the ECS. added id should be extracted using last-id function"
@@ -192,9 +193,6 @@
     [(difference a b)
      (difference b a)]))
 
-
-;;; 3rd level
-;;; Public 
 
 (defn- update-ctoe
   "Updates ctoe according changes happened in entity id from state a to state b"
