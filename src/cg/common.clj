@@ -1,5 +1,12 @@
 (ns cg.common)
 
+(defn timer [] (System/nanoTime))
+
+(defn timer-end [start]
+  (/ (double (- (System/nanoTime)
+                start))
+     1000000.0))
+
 (defn distance
   "distance between points"
   ([x1 y1 x2 y2]

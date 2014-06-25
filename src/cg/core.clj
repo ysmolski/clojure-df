@@ -18,7 +18,7 @@
 ;; (set! *unchecked-math* true)
 
 (def ui
-  {:window-width 1200
+  {:window-width 1000
    :window-height 700
    :right-panel-width 300
    :window-border 10
@@ -44,6 +44,7 @@
             :beast [;;(health)
                     (position 15 15)
                     (renderable "b")]})
+
 (defn new-player [w]
   (let [xy (s/random-place (:map w) s/passable? 40 40)
         ;;xy (first (s/rc-cells (:rc w) (first (s/rc-smallest-area (:rc w)))))
@@ -51,7 +52,7 @@
     (u/add-player w xy)))
 
 (defn new-spawn [w]
-  (-> (apply-times w 1 new-player)
+  (-> (apply-times w 10 new-player)
       (m/init-visible (s/random-place (:map w) s/passable? 40 40))))
 
 ;;; State
@@ -154,7 +155,7 @@
     (-> (new-ecs)
         (m/attach-to-ecs site rc)
         (new-spawn)
-        #_(dig-all))))
+        (dig-all))))
 
 (defn bound-viewport
   [[x y] [dx dy]]
@@ -211,18 +212,26 @@
       (cond
        (= action :move-to) (update-entities w ids set-c (destination abs-x abs-y))
        (#{:dig :build-wall} action) (on-mouse-designate w action abs-x abs-y)
-       :else w))))
+       :else w)
+      w)))
+
+(def systems [system-move
+              system-guide
+              system-path-find
+              system-assign-jobs
+              system-dig])
 
 (defn on-tick
   "Handles ticks of the world, delta is the time passes since last tick"
   [w time]
-  (-> w
-      (system-move time)
-      (system-guide time)
-      (system-path-find time)
-      (system-assign-jobs time)
-      (system-dig time)
-      ))
+  (let [[ts w] (reduce (fn [[ts w] s]
+                         (let [t (timer)
+                               w (s w time)
+                               t (timer-end t)]
+                           [(conj ts t) w]))
+                       [[] w] systems)]
+    (prn ts)
+    w))
 
 ;;; RENDERING STUFF
 
@@ -370,17 +379,18 @@
 (defn updating []
   (loop []
     (let [update-sleep-ms (/ 1000 (float (ui :ups-cap)))
-          start (System/nanoTime)
+          start (timer)
           new-world (if @(:paused game)
                       (:world game)
                       (game! :world on-tick update-sleep-ms))
-          elapsed (/ (double (- (System/nanoTime) start)) 1000000.0)]
+          elapsed (timer-end start)]
 
       (game! :update-time averager (/ (float 1000) (max update-sleep-ms elapsed)))
       
       (if (> elapsed update-sleep-ms)
         (prn "elapsed:" elapsed update-sleep-ms)
         (Thread/sleep (- update-sleep-ms elapsed)))
+      ;;(Thread/sleep 200)
       (when @running
         (recur))))
   (prn :updating-exited))

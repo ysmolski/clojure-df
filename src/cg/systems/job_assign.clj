@@ -36,7 +36,7 @@
          targets (sort-by-nearest w xy ids)]
     (when (seq ids)
       (let [[id target] (first targets)
-            txy (round-coords (target :position))]
+            txy (round-coords (:position target))]
         (let [reachable-nbrs (find-reachable-nbrs w xy txy)]
           ;;(prn :reachable-nbrs reachable-nbrs)
           (if (empty? reachable-nbrs)
@@ -53,28 +53,28 @@
       [id (round-coords (:position (get-e w id)))])))
 
 (defn assign-jobs
-  [w time]
-  (let [workers (get-cnames-ids w (node :free-worker))
-        jobs    (get-cnames-ids w (node :free-job))]
-    (if-not (or (empty? workers)
-                (empty? jobs))
-      (let [worker-id (first workers)
-            xy (round-coords (get-c w worker-id :position))]
-        ;; find unoccupied neighbors and check if worker can get to
-        ;; them
-        (if-let [[job-id [tx ty]] (get-nbrs-jobs w xy jobs)]
-          (-> w 
-              (update-entity job-id rem-c :free)
-              (update-entity worker-id rem-c :job-ready)
-              (update-entity worker-id set-c (job-dig tx ty job-id)))
-          (if-let [[job-id [x y] [tx ty]] (find-reachable w xy jobs)]
-            (let [job (get-e w job-id)]
-              (prn :job-assigned job-id worker-id tx ty x y)
+  [w t]
+  (let [workers (get-cnames-ids w (:free-worker node))]
+    (if (seq workers)
+      (let [jobs (get-cnames-ids w (:free-job node))]
+        (if (seq jobs)
+          (let [worker-id (first workers)
+                xy (round-coords (get-c w worker-id :position))]
+            ;; find unoccupied neighbors and check if worker can get to
+            ;; them
+            (if-let [[job-id [tx ty]] (get-nbrs-jobs w xy jobs)]
               (-> w 
                   (update-entity job-id rem-c :free)
                   (update-entity worker-id rem-c :job-ready)
-                  (update-entity worker-id set-c (job-dig tx ty job-id))
-                  (update-entity worker-id set-c (destination (float x) (float y)))))))))))
+                  (update-entity worker-id set-c (job-dig tx ty job-id)))
+              (if-let [[job-id [x y] [tx ty]] (find-reachable w xy jobs)]
+                (let [job (get-e w job-id)]
+                  (prn :job-assigned job-id worker-id tx ty x y)
+                  (-> w 
+                      (update-entity job-id rem-c :free)
+                      (update-entity worker-id rem-c :job-ready)
+                      (update-entity worker-id set-c (job-dig tx ty job-id))
+                      (update-entity worker-id set-c (destination (float x) (float y)))))))))))))
 
 (defn system-assign-jobs
   "take free workers and find next (closest?) jobs for them"

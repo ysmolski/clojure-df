@@ -104,7 +104,7 @@
   "Returns ids of entities which have all the components
   specified in sequence cnames"
   [ecs cnames]
-  (apply intersection (map #(set (get-cname-ids ecs %)) cnames)))
+  (apply intersection (map #(get-cname-ids ecs %) cnames)))
 
 (defn get-cnames-ents
   "return entities which have components specified by seq cnames"
@@ -214,7 +214,7 @@
   (let [e (get-e ecs id)
         result (apply f e args)
         ecs (apply-update-fns ecs id e result)]
-    #_(prn :update-e id f (count args))
+    ;;(prn :update-e id (str f) (count args))
     (-> ecs
         (update-ctoe id e result)
         (update-e id result))))
