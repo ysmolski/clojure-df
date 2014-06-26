@@ -231,7 +231,7 @@
                                t (timer-end t)]
                            [(conj ts t) w]))
                        [[] w] systems)]
-    (prn ts (reduce + ts))
+    (prn ts (int (reduce + ts)))
     w))
 
 ;;; RENDERING STUFF

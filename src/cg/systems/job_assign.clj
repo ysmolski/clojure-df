@@ -15,13 +15,12 @@
        (filter (partial s/connected? (:map w) from-xy))
        (sort-by (fn [[tx ty]] (distance fx fy tx ty)))))
 
-(defn sort-by-nearest [w from-xy ids]
-  (let [[fx fy] from-xy
-        targets (map #(vector % (get-e w %)) ids)]
-    (sort-by (fn [[_ e]]
-               (let [[tx ty] (coords (:position e))]
-                 (distance fx fy tx ty)))
-             targets)))
+(defn sort-by-nearest [w from-xy targets]
+  (let [[fx fy] from-xy]
+    (time (sort-by (fn [[_ e]]
+                     (let [[tx ty] (coords (:position e))]
+                       (distance fx fy tx ty)))
+                   targets))))
 
 (defn find-reachable
   "Tries to find free cell next to entity specified by targetreachable from xy.
@@ -33,10 +32,11 @@
   [w xy ids]
   (loop [w w
          xy xy
-         targets (sort-by-nearest w xy ids)]
+         targets (sort-by-nearest w xy (get-e-many w ids))
+         ;;targets (get-e-many w ids)
+         ]
     (when (seq targets)
-      ;; (prn :find-reachable (first targets))
-      (let [[id target] (first targets)
+        (let [[id target] (first targets)
             txy (round-coords (:position target))]
         (let [reachable-nbrs (find-reachable-nbrs w xy txy)]
           ;;(prn :reachable-nbrs reachable-nbrs)

@@ -79,6 +79,10 @@
   [ecs entity-id]
   (get-in ecs [:etoc entity-id]))
 
+(defn get-e-many
+  [ecs entity-ids]
+  (map #(vector % (get-e ecs %)) entity-ids))
+
 (defn get-c
   "returns component `cname` in entity by `id`"
   [ecs id cname]
