@@ -34,7 +34,8 @@
   (loop [w w
          xy xy
          targets (sort-by-nearest w xy ids)]
-    (when (seq ids)
+    (when (seq targets)
+      ;; (prn :find-reachable (first targets))
       (let [[id target] (first targets)
             txy (round-coords (:position target))]
         (let [reachable-nbrs (find-reachable-nbrs w xy txy)]
@@ -45,14 +46,16 @@
 
 (defn get-nbrs-jobs [w xy free-jobs]
   (let [nbrs (map :ids (filter s/diggable? (map #(m/place w %) (astar/neighbors (:map-size w) xy))))
-        ids (apply clojure.set/union nbrs)
-        ids (clojure.set/intersection ids free-jobs)
+        all-ids (apply clojure.set/union nbrs)
+        ids (clojure.set/intersection all-ids free-jobs)
         id (first ids)]
     (when id
       (prn :found-close id (round-coords (:position (get-e w id))))
       [id (round-coords (:position (get-e w id)))])))
 
 (defn assign-jobs
+  "For any new found worker it tries to find matching job
+  first by looking at neughbour cells and then by looking at other cells"
   [w t]
   (let [workers (get-cnames-ids w (:free-worker node))]
     (if (seq workers)

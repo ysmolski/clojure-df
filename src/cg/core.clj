@@ -8,7 +8,8 @@
   (:use cg.systems.pathfind)
   (:use cg.systems.job-assign)
   (:use cg.systems.job-exec)
-  (:require [cg.astar :as astar]
+  (:require [clojure.math.numeric-tower :as math]
+            [cg.astar :as astar]
             [cg.map :as m]
             [cg.site :as s]
             [cg.units :as u]
@@ -230,7 +231,7 @@
                                t (timer-end t)]
                            [(conj ts t) w]))
                        [[] w] systems)]
-    (prn ts)
+    (prn ts (reduce + ts))
     w))
 
 ;;; RENDERING STUFF
@@ -253,14 +254,13 @@
 
 (defn draw-ents [[vp-x vp-y w h] ents tiles]
   (doseq [e ents]
-    (let [m (e :position)
+    (let [[x y] (coords (e :position))
           r (e :renderable)
           ch (:char r)
-          x (- (m :x) vp-x)
-          y (- (m :y) vp-y)]
-      (if (and (< 0 x w)
-               (< 0 y h))
-        
+          x (- x vp-x)
+          y (- y vp-y)]
+      (if (and (< 0 (math/round x) w)
+               (< 0 (math/round y) h))
         (if (keyword? ch)
           (image (ch tiles) x y)
           (text ch x y))))))
@@ -388,7 +388,7 @@
       (game! :update-time averager (/ (float 1000) (max update-sleep-ms elapsed)))
       
       (if (> elapsed update-sleep-ms)
-        (prn "elapsed:" elapsed update-sleep-ms)
+        (prn "timeout:" elapsed)
         (Thread/sleep (- update-sleep-ms elapsed)))
       ;;(Thread/sleep 200)
       (when @running

@@ -8,5 +8,6 @@
                  [quil "2.0.0"]
                  [org.jordanlewis/data.union-find "0.1.0"]
                  [midje "1.6.3"]
+                 [org.clojure/math.numeric-tower "0.0.4"]
                  ]
   :profiles {:dev {:dependencies []}})

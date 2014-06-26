@@ -91,12 +91,13 @@
   Sets :visibible for all Neighbour regions"
   [ecs [x y]]
   (let [rs (s/nbrs-regions (:map ecs) (:map-size ecs) [x y])]
+    ;; (prn :update-region [x y])
     (if (= 1 (count rs))
       (add-region ecs [x y] (first rs))
       (let [sorted-regions (s/rc-biggest-area (:rc ecs) rs)
             big (first sorted-regions)
             other (rest sorted-regions)]
-        (prn :update-region sorted-regions)
+        ;; (prn :update-region sorted-regions)
         (-> (reduce #(move-region %1 %2 big) ecs other)
             (add-region [x y] big))))))
 

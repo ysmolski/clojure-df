@@ -10,6 +10,7 @@
   [e time]
   (let [points (-> e :path :points)
         next-point (peek points)]
+    ;; (prn :guide points)
     (if (nil? next-point)
       (-> e
           (rem-c :velocity)
@@ -17,7 +18,9 @@
       (let [p (:position e)
             s (-> e :speed :pixsec)
             [vx vy] (project-speed (:x p) (:y p) (next-point 0) (next-point 1) s)]
-        (if (zero? vx)
+        ;; (prn :guide p s [vx vy])
+        (if (and (zero? vx)
+                 (zero? vy))
           (-> e
               (update-in [:path :points] pop)
               (set-c (velocity 0 0)))

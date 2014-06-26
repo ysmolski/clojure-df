@@ -7,6 +7,7 @@
         t-norm (/ time 1000)
         dx (* (:x v) t-norm)
         dy (* (:y v) t-norm)]
+    ;; (prn :move v t-norm [dx dy])
     (-> e
         (update-in [:position :x] + dx)
         (update-in [:position :y] + dy))))

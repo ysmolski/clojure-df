@@ -214,7 +214,7 @@
   (let [e (get-e ecs id)
         result (apply f e args)
         ecs (apply-update-fns ecs id e result)]
-    ;;(prn :update-e id (str f) (count args))
+    ;; (prn :update-e id (str f) (count args))
     (-> ecs
         (update-ctoe id e result)
         (update-e id result))))

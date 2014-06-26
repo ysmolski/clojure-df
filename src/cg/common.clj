@@ -1,4 +1,5 @@
-(ns cg.common)
+(ns cg.common
+  (:require [clojure.math.numeric-tower :as math]))
 
 (defn timer [] (System/nanoTime))
 
@@ -34,7 +35,7 @@
 (defn floor
   "drops fractional part"
   [position]
-  (quot position 1))
+  (math/floor position))
 
 (defn bound
   "returns n bound to limit [0-b]"
@@ -46,8 +47,8 @@
       n)))
 
 (defn contacting? [[x1 y1] [x2 y2]]
-  (and (>= 1 (Math/abs (- x1 x2)))
-       (>= 1 (Math/abs (- y1 y2)))))
+  (and (>= 1 (math/abs (- x1 x2)))
+       (>= 1 (math/abs (- y1 y2)))))
 
 (defn apply-times
   "N time applies w&args to f and then result is applied as w"
