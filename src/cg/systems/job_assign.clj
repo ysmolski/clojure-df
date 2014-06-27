@@ -15,12 +15,17 @@
        (filter (partial s/connected? (:map w) from-xy))
        (sort-by (fn [[tx ty]] (distance fx fy tx ty)))))
 
+;;; FIX: this is super slow when number of targets is high
 (defn sort-by-nearest [w from-xy targets]
   (let [[fx fy] from-xy]
     (time (sort-by (fn [[_ e]]
                      (let [[tx ty] (coords (:position e))]
                        (distance fx fy tx ty)))
                    targets))))
+
+(defn sort-by-id [w from-xy targets]
+  (let [[fx fy] from-xy]
+    (sort-by (fn [[id _]] id) targets)))
 
 (defn find-reachable
   "Tries to find free cell next to entity specified by targetreachable from xy.
@@ -32,8 +37,8 @@
   [w xy ids]
   (loop [w w
          xy xy
-         targets (sort-by-nearest w xy (get-e-many w ids))
-         ;;targets (get-e-many w ids)
+         ;;targets (sort-by-nearest w xy (get-e-many w ids))
+         targets (get-e-many w ids)
          ]
     (when (seq targets)
         (let [[id target] (first targets)

@@ -231,7 +231,8 @@
                                t (timer-end t)]
                            [(conj ts t) w]))
                        [[] w] systems)]
-    (prn ts (int (reduce + ts)))
+    (when (> (reduce + ts) 10)
+      (prn ts))
     w))
 
 ;;; RENDERING STUFF
@@ -342,16 +343,6 @@
     
     ;;(prn tiles)
     
-    ;; draw grid
-    ;; (q/stroke-weight 1)
-    ;; (q/stroke-float (ui :ui-color))
-    ;; (doseq [x (range (inc width))]
-    ;;   (q/line (pos2pix x) (pos2pix 0)
-    ;;           (pos2pix x) (pos2pix height)))
-    ;; (doseq [y (range (inc height))]
-    ;;   (q/line (pos2pix 0) (pos2pix y)
-    ;;           (pos2pix width) (pos2pix y)))
-
     ;; (q/text-size (ui :text-size))
     (q/text-font (q/state :font-monaco) (ui :text-size))
 
