@@ -1,6 +1,6 @@
 (ns cg.ecs
   "Entity component system"
-  (:use midje.sweet)
+;;  (:use midje.sweet)
   (:use [clojure.pprint :only [pprint]])
   (:use [clojure.set :only [intersection difference]])
   (:use [cg.queue])

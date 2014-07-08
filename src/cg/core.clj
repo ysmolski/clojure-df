@@ -1,5 +1,4 @@
 (ns cg.core
-  (:gen-class)
   (:use cg.common)
   (:use cg.ecs)
   (:use cg.comps)
@@ -8,12 +7,20 @@
   (:use cg.systems.pathfind)
   (:use cg.systems.job-assign)
   (:use cg.systems.job-exec)
+  (:import [com.badlogic.gdx.graphics Texture]
+           [com.badlogic.gdx.graphics.glutils ShapeRenderer ShapeRenderer$ShapeType]
+           [com.badlogic.gdx.graphics.g2d SpriteBatch BitmapFont])
+
   (:require [clojure.math.numeric-tower :as math]
             [cg.astar :as astar]
             [cg.map :as m]
             [cg.site :as s]
             [cg.units :as u]
-            [quil.core :as q]))
+            [quil.core :as q]
+            [play-clj.core :as g]
+            [play-clj.g2d :refer :all]
+            [play-clj.utils :as gu])
+  )
 
 ;; (set! *warn-on-reflection* true) 
 ;; (set! *unchecked-math* true)
@@ -36,9 +43,8 @@
    :ups-cap 60
    })
 
-(declare pos2pix pix2pos epos2pix pos-middle tiles on-draw on-draw on-draw)
+(declare pos2pix pix2pos epos2pix pos-middle tiles)
 
-(def update-sleep-ms 10)
 (def running (atom true))
 
 (def scene {
@@ -429,5 +435,62 @@
    ;; :mouse-wheel (fn [] (reset! (game :mouse-pos) [(q/mouse-x) (q/mouse-y)]))
    :on-close on-close))
 
-(defn -main [& args]
-  (launch))
+
+(defonce asset-manager (g/asset-manager))
+(g/set-asset-manager! asset-manager)
+
+(defn textures [file]
+  (let [sheet (texture file)
+        tiles (texture! sheet :split 16 16)
+        grass (:object (texture (aget tiles 0 0)))
+        stone (:object (texture (aget tiles 0 1)))]
+    {:grass grass
+     :stone stone}))
+
+(def s (atom {}))
+
+(defn add-renderers [s]
+  (assoc s :renderer
+         {:shape (ShapeRenderer.)
+          :batch (SpriteBatch. 5000)
+          :font  (BitmapFont.)
+          :textures (textures "tiles.png")}))
+
+(defn render-tick [s]
+  (let [r (:renderer s)
+        batch (:batch r)
+        font (:font r)
+        tx (:textures r)
+        width (int (/ (float (g/game :width)) 16))
+        height (int (/ (float (g/game :height)) 16))
+        text (str (g/game :fps) " " (* width height))
+        ]
+;;    (prn width height (.maxSpritesInBatch batch) (.totalRenderCalls batch))
+    (.begin batch)
+    (doseq [x (range 1 (dec width))
+            y (range 1 (dec height))]
+      (.draw batch (if (even? x) (:grass tx) (:stone tx)) (float (* x 16)) (float (* y 16)))
+      ;;(.draw font batch "o" (float (* x 16)) (float (* (inc y) 16)))
+      )
+    (.draw font batch text 10 15)
+    (.end batch)))
+
+(g/defscreen main-screen
+  :on-show
+  (fn [screen _]
+    (prn "started")
+    (swap! s add-renderers)
+    (g/update! screen :renderer (g/stage) :camera (g/orthographic))
+    (g/graphics! :set-v-sync false)
+    nil)
+  
+  :on-render
+  (fn [screen _]
+    (g/clear!)
+    (render-tick @s)
+    nil))
+
+(g/defgame cg-game
+    :on-create
+    (fn [this]
+      (g/set-screen! this main-screen)))
