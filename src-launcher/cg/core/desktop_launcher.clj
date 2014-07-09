@@ -10,10 +10,10 @@
     (Keyboard/enableRepeatEvents true)
     (let [config (LwjglApplicationConfiguration.)]
         (doto config
-            (-> .width (set! 1720))
-            (-> .height (set! 1080))
+            (-> .width (set! 1280))
+            (-> .height (set! 720))
             (-> .title (set! "Meta Strategy"))
-;;            (-> .resizable (set! false))
+            (-> .resizable (set! false))
             )
         (LwjglApplication. cg-game config)))
 

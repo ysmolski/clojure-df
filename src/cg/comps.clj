@@ -61,7 +61,7 @@
   :x  x
   :y  y
   :id id
-  :progress 5000) ;; from 1000 to 0
+  :progress 500) ;; from 1000 to 0
 
 (defcomp job-wall [x y id]
   :x  x

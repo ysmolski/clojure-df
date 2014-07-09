@@ -115,6 +115,10 @@
   [ecs cnames]
   (map #(get-e ecs %) (get-cnames-ids ecs cnames)))
 
+(defn ids-with-comp
+  [ecs entity-ids cname]
+  (clojure.set/intersection entity-ids (get-cname-ids ecs cname)))
+
 ;;; event handlers
 
 (defn add-update-hook
