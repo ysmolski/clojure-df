@@ -1,6 +1,7 @@
 # cg
 
-A Clojure library designed to provide tools for developing game worlds.
+Clone of Dwarf Fortress on Clojure.
+Raw and bugged.
 
 ## Usage
 

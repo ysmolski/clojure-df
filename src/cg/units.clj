@@ -14,7 +14,7 @@
   (load-entity w :stone
                (stone :gabbro)
                (position x y)
-               (renderable "✶")))
+               (renderable :stone)))
 
 (defn add-player [w [x y]]
   (load-entity w :unit

@@ -17,7 +17,6 @@
             [cg.map :as m]
             [cg.site :as s]
             [cg.units :as u]
-            [quil.core :as q]
             [play-clj.core :as g]
             [play-clj.g2d :refer :all]
             [play-clj.utils :as gu])
@@ -279,16 +278,9 @@
   (when (s/visible? cell)
     (do
       (when-not (s/passable? cell)
-        (image batch (:stone tiles) x y))
+        (image batch (:rock tiles) x y))
       (when-let [r (:region cell)]
         (image batch (:grass tiles) x y)))))
-
-(defn draw-site [w f [vp-x vp-y width height] tiles]
-  (let [m (:map w)]
-    (doseq [x (range width)
-            y (range height)]
-      (let [cell (s/place m [(+ vp-x x) (+ vp-y y)])]
-        (f cell x y tiles)))))
 
 (defn entity-info-str [w id]
   (let [e (get-e w id)
@@ -322,6 +314,41 @@
                         (dec height)
                         (:right-panel-width ui)))))))
 
+(defn render-tick [game]
+  (let [w (:world game)
+        c (:camera game)
+        r (:renderer game)
+        m (:map w)
+        batch (:batch r)
+        font (:font r)
+        tx (:textures r)
+        [cx cy] (:pos c)
+        [width height] (:size c)
+        text (str (g/game :fps) " " (* width height))]
+;;    (prn width height (.maxSpritesInBatch batch) (.totalRenderCalls batch))
+    (.begin batch)
+    (doseq [x (range width)
+            y (range height)]
+      (draw-tile batch
+                 (s/place m [(+ x cx)
+                             (+ y cy)])
+                 x y tx))
+    (.setColor batch (float 1) (float 1) (float 0) (float 1.0))
+    (draw-ents batch
+               [cx cy width height]
+               (get-cnames-ents w (node :render))
+               tx
+               font)
+    (.setColor batch (float 1) (float 1) (float 1) (float 1.0))
+    (.draw font batch text 10 15)
+    (.draw font batch (str (:mouse-pos game)) 70 15)
+    (.draw font batch (str (-> game :camera :pos)) 190 15)
+    (.draw font batch (str (count (-> game :world :etoc))) 240 15)
+    (.draw font batch (str (-> game :update-time)) 290 15)
+    (.draw font batch (str (-> game :mouse-action)) 350 15)
+    (draw-info font batch game)
+    (.end batch)))
+
 ;;; ticks thread
 
 (defn averager [& args]
@@ -352,12 +379,11 @@
   (let [sheet (texture file)
         tiles (texture! sheet :split 16 16)]
     {:grass (:object (texture (aget tiles 5 2)))
-     :stone (:object (texture (aget tiles 1 6)))
+     :rock (:object (texture (aget tiles 1 6)))
      :char (:object (texture (aget tiles 6 0)))
      :dig (:object (texture (aget tiles 6 5)))
-     :wall (:object (texture (aget tiles 1 5)))}))
-
-(def s (atom {}))
+     :wall (:object (texture (aget tiles 1 5)))
+     :stone (:object (texture (aget tiles 6 6)))}))
 
 (defn add-renderers [game]
   (assoc game :renderer
@@ -372,63 +398,6 @@
           :size [(tiles (- (g/game :width)
                            (:right-panel-width ui)))
                  (tiles (g/game :height))]}))
-
-;; (defn render-bench-tick [s]
-;;   (let [r (:renderer s)
-;;         batch (:batch r)
-;;         font (:font r)
-;;         tx (:textures r)
-;;         width (int (/ (float (g/game :width)) 16))
-;;         height (int (/ (float (g/game :height)) 16))
-;;         text (str (g/game :fps) " " (* width height))
-;;         ]
-;; ;;    (prn width height (.maxSpritesInBatch batch) (.totalRenderCalls batch))
-;;     (.begin batch)
-;;     (doseq [x (range 1 (dec width))
-;;             y (range 1 (dec height))]
-;;       (.draw batch (if (even? x) (:grass tx) (:stone tx)) (float (* x 16)) (float (* y 16)))
-;;       ;;(.draw font batch "o" (float (* x 16)) (float (* (inc y) 16)))
-;;       )
-;;     (.draw font batch text 10 15)
-;;     (.end batch)))
-
-(defn render-tick [game]
-  (let [w (:world game)
-        c (:camera game)
-        r (:renderer game)
-        batch (:batch r)
-        font (:font r)
-        tx (:textures r)
-        [cx cy] (:pos c)
-        [width height] (:size c)
-        text (str (g/game :fps) " " (* width height))
-        m (:map w)
-        ]
-;;    (prn width height (.maxSpritesInBatch batch) (.totalRenderCalls batch))
-    (.begin batch)
-    (doseq [x (range width)
-            y (range  height)]
-      (draw-tile batch
-                 (s/place m [(+ x cx)
-                             (+ y cy)])
-                 x y tx)
-      ;;(.draw batch (if (even? x) (:grass tx) (:stone tx)) (float (* x 16)) (float (* y 16)))
-      )
-    (.setColor batch (float 0) (float 1) (float 0) (float 1.0))
-    (draw-ents batch
-               [cx cy width height]
-               (get-cnames-ents w (node :render))
-               tx
-               font)
-    (.setColor batch (float 1) (float 1) (float 1) (float 1.0))
-    (.draw font batch text 10 15)
-    (.draw font batch (str (:mouse-pos game)) 70 15)
-    (.draw font batch (str (-> game :camera :pos)) 190 15)
-    (.draw font batch (str (count (-> game :world :etoc))) 240 15)
-    (.draw font batch (str (-> game :update-time)) 290 15)
-    (.draw font batch (str (-> game :mouse-action)) 350 15)
-    (draw-info font batch game)
-    (.end batch)))
 
 (defn unproject [screen]
   [(:input-x screen)

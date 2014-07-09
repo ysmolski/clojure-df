@@ -31,7 +31,7 @@
             (update-entity id set-c (job-ready))
             (rem-e job-id)
             (m/dig job-xy)
-            (add-with-prob 0.1 u/add-stone (job-xy 0) (job-xy 1)))
+            (add-with-prob 0.5 u/add-stone (job-xy 0) (job-xy 1)))
         (update-entity w id #(update-in %1 [job-kind :progress] - time)))
       w)))
 
