@@ -2,10 +2,10 @@
   [:use cg.common]
   [:use cg.ecs]
   [:use cg.comps]
-  [:require [cg.ecs :as e]]
-  [:require [cg.map :as m]]
-  [:require [cg.units :as u]]
-  [:require [cg.astar :as astar]])
+  (:require [clojure.math.numeric-tower :as math]
+            [cg.map :as m]
+            [cg.units :as u]
+            [cg.astar :as astar]))
 
 ;; EXECUTE JOBS
 
@@ -28,12 +28,15 @@
       (if (neg? progress)
         (-> w
             (update-entity id rem-c job-kind)
-            (update-entity id set-c (job-ready))
+            (update-entity id set-c (done-job))
             (rem-e job-id)
             (m/dig job-xy)
             (add-with-prob 0.5 u/add-stone (job-xy 0) (job-xy 1)))
-        (update-entity w id #(update-in %1 [job-kind :progress] - time)))
-      w)))
+        (update-entity w id #(update-in %1 [job-kind :progress] - (math/round time))))
+      ;; remove job from id and report failed job for entity
+      (-> w
+          (update-entity id rem-c job-kind)
+          (update-entity id set-c (failed-job))))))
 
 (defn system-dig
   [w time]

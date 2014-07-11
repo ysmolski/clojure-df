@@ -2,10 +2,10 @@
   [:use cg.common]
   [:use cg.ecs]
   [:use cg.comps]
-  [:require [cg.ecs :as e]]
-  [:require [cg.map :as m]]
-  [:require [cg.site :as s]]
-  [:require [cg.astar :as astar]])
+  (:require [cg.map :as m]
+            [cg.site :as s]
+            [cg.astar :as astar]
+            [cg.jobs :refer :all]))
 
 (defn find-reachable-nbrs
   "finds all neighbour points of to-xy reachable from from-xy"
@@ -37,8 +37,8 @@
   [w xy ids]
   (loop [w w
          xy xy
-         ;;targets (sort-by-nearest w xy (get-e-many w ids))
-         targets (get-e-many w ids)
+         targets (sort-by-nearest w xy (get-e-many w ids))
+         ;;targets (get-e-many w ids)
          ]
     (when (seq targets)
         (let [[id target] (first targets)
@@ -58,13 +58,13 @@
       (prn :found-close id (round-coords (:position (get-e w id))))
       [id (round-coords (:position (get-e w id)))])))
 
-(defn assign-jobs
+(defn assign-dig-task
   "For any new found worker it tries to find matching job
   first by looking at neughbour cells and then by looking at other cells"
   [w t]
-  (let [workers (get-cnames-ids w (:free-worker node))]
+  (let [workers (get-cnames-ids w (:free-digger node))]
     (if (seq workers)
-      (let [jobs (get-cnames-ids w (:free-job node))]
+      (let [jobs (get-cnames-ids w (:free-dig node))]
         (if (seq jobs)
           (let [worker-id (first workers)
                 xy (round-coords (get-c w worker-id :position))]
@@ -73,21 +73,24 @@
             (if-let [[job-id [tx ty]] (get-nbrs-jobs w xy jobs)]
               (-> w 
                   (update-entity job-id rem-c :free)
-                  (update-entity worker-id rem-c :job-ready)
-                  (update-entity worker-id set-c (job-dig tx ty job-id)))
+                  (queue-jobs worker-id [(job-dig tx ty job-id)])
+                  #_(update-entity worker-id rem-c :want-job)
+                  #_(update-entity worker-id set-c (job-dig tx ty job-id)))
               (if-let [[job-id [x y] [tx ty]] (find-reachable w xy jobs)]
                 (let [job (get-e w job-id)]
                   (prn :job-assigned job-id worker-id tx ty x y)
                   (-> w 
                       (update-entity job-id rem-c :free)
-                      (update-entity worker-id rem-c :job-ready)
-                      (update-entity worker-id set-c (job-dig tx ty job-id))
-                      (update-entity worker-id set-c (destination x y))))))))))))
+                      (queue-jobs worker-id [(move-to x y)
+                                             (job-dig tx ty job-id)])
+                      #_(update-entity worker-id rem-c :want-job)
+                      #_(update-entity worker-id set-c (job-dig tx ty job-id))
+                      #_(update-entity worker-id set-c (move-to x y))))))))))))
 
-(defn system-assign-jobs
+(defn system-assign-dig-tasks
   "take free workers and find next (closest?) jobs for them"
   [w time]
-  (if-let [res (assign-jobs w time)]
+  (if-let [res (assign-dig-task w time)]
     res
     w))
 

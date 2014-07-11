@@ -3,24 +3,34 @@
   (:require [cg.comps :refer :all]
             [cg.ecs :refer :all]))
 
-(defn add-job [w kind x y char]
-  (load-entity w kind
-               (job kind)
+(defn add-task-dig [w x y]
+  (load-entity w :task-dig
+               (task-dig)
                (position x y)
-               (renderable char)
+               (renderable :dig :yellow)
+               (free)))
+
+(defn add-task-build-wall [w x y]
+  (load-entity w :task-build-wall
+               (task-build-wall)
+               (position x y)
+               (renderable :wall :yellow)
                (free)))
 
 (defn add-stone [w x y]
   (load-entity w :stone
                (stone :gabbro)
                (position x y)
-               (renderable :stone)))
+               (renderable :stone :white)))
 
 (defn add-player [w [x y]]
   (load-entity w :unit
                (speed 10)
                (position (float x) (float y))
-               (controllable)
-               (renderable :char)
-               (job-ready)))
+               (worker)
+               (renderable :char :white)
+               (can-dig)
+               (can-build)
+               (can-haul)
+               (want-job)))
 

@@ -14,7 +14,8 @@
     (if (nil? next-point)
       (-> e
           (rem-c :velocity)
-          (rem-c :path))
+          (rem-c :path)
+          (set-c (done-job)))
       (let [p (:position e)
             s (-> e :speed :pixsec)
             [vx vy] (project-speed (:x p) (:y p) (next-point 0) (next-point 1) s)]

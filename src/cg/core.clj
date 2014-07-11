@@ -6,6 +6,7 @@
   (:use cg.systems.guide)
   (:use cg.systems.pathfind)
   (:use cg.systems.job-assign)
+  (:use cg.systems.next-job)
   (:use cg.systems.job-exec)
   (:import [com.badlogic.gdx.graphics Texture]
            [com.badlogic.gdx.graphics.glutils ShapeRenderer ShapeRenderer$ShapeType]
@@ -47,10 +48,8 @@
 
 (def running (atom true))
 
-(def scene {
-            :beast [;;(health)
-                    (position 15 15)
-                    (renderable "b")]})
+;; (def scene {:beast [(position 15 15)
+;;                     (renderable "b")]})
 
 (defn new-player [w]
   (let [xy (s/random-place (:map w) s/passable? 40 40)
@@ -76,8 +75,8 @@
                  :update-time 0
                  :mouse-pos [0 0]}))
 
-(defn game! [key f & args]
-  (apply swap! (key game) f args))
+(def colors {:white (g/color :white)
+             :yellow (g/color :yellow)})
 
 ;;; view port
 
@@ -136,7 +135,7 @@
             [x y] fc]
         (if (and (s/visible? c)
                  (s/diggable? c))
-          (recur (u/add-job w :dig x y :dig) rc)
+          (recur (u/add-task-dig w x y) rc)
           (recur w rc)))
       w)))
 
@@ -180,19 +179,19 @@
 
 (defmethod on-mouse-designate :dig [w action x y]
   (let [c (m/place w [x y])
-        jobs (ids-with-comp w (:ids c) :job)]
-    (if (and (empty? jobs)
+        tasks (ids-with-comp w (:ids c) :task-dig)]
+    (if (and (empty? tasks)
              (or (not (s/visible? c))
                  (s/diggable? c)))
-      (u/add-job w :dig x y :dig)
+      (u/add-task-dig w x y)
       w)))
 
 (defmethod on-mouse-designate :build-wall [w action x y]
   (let [c (m/place w [x y])
-        jobs (ids-with-comp w (:ids c) :job)]
-    (if (and (empty? jobs)
+        tasks (ids-with-comp w (:ids c) :task-build-wall)]
+    (if (and (empty? tasks)
              (s/passable? c))
-      (u/add-job w :build-wall x y :wall)
+      (u/add-task-build-wall w x y)
       w)))
 
 (defn on-mouse
@@ -201,14 +200,14 @@
   (let [w (:world game)
         action (:mouse-action game)
         [width height] (-> game :camera :size)
-        ids (get-cnames-ids w [:controllable])
+        ids (get-cnames-ids w [:worker])
         [x y] (pix->relative [x y])
         [abs-x abs-y] (relative->absolute [x y] (:camera game))]
     (prn abs-x abs-y e action)
     (if (in-camera? x y width height)
       (cond
        (= action :move-to)
-       (update-in game [:world] update-entities ids set-c (destination abs-x abs-y))
+       (update-in game [:world] update-entities ids set-c (move-to abs-x abs-y))
 
        (#{:dig :build-wall} action)
        (update-in game [:world] on-mouse-designate action abs-x abs-y)
@@ -219,7 +218,9 @@
 (def systems [system-move
               system-guide
               system-path-find
-              system-assign-jobs
+              system-assign-dig-tasks
+              system-next-job
+              system-fail-job
               system-dig])
 
 (defn on-tick
@@ -255,7 +256,8 @@
 
 (defn image
   "x and y are tiles coordinates"
-  [batch t x y]
+  [batch t color x y]
+  (.setColor batch (color colors))
   (.draw batch
          t
          (float (+ (epos2pix (dec x)) 8))
@@ -265,22 +267,21 @@
   (doseq [e ents]
     (let [[x y] (coords (e :position))
           r (e :renderable)
-          ch (:char r)
+          texture (:texture r)
+          color (:color r)
           x (- x vp-x)
           y (- y vp-y)]
       (if (and (< 0 (math/round x) w)
                (< 0 (math/round y) h))
-        (if (keyword? ch)
-          (image batch (ch tiles) x y)
-          (text font batch ch x y))))))
+        (image batch (texture tiles) color x y)))))
 
 (defn draw-tile [batch cell x y tiles]
   (when (s/visible? cell)
     (do
       (when-not (s/passable? cell)
-        (image batch (:rock tiles) x y))
+        (image batch (:rock tiles) :white x y))
       (when-let [r (:region cell)]
-        (image batch (:grass tiles) x y)))))
+        (image batch (:grass tiles) :white x y)))))
 
 (defn entity-info-str [w id]
   (let [e (get-e w id)
