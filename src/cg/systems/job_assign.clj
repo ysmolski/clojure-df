@@ -82,7 +82,7 @@
                       (update-entity job-id rem-c :free)
                       (update-entity worker-id rem-c :job-ready)
                       (update-entity worker-id set-c (job-dig tx ty job-id))
-                      (update-entity worker-id set-c (destination (float x) (float y)))))))))))))
+                      (update-entity worker-id set-c (destination x y))))))))))))
 
 (defn system-assign-jobs
   "take free workers and find next (closest?) jobs for them"
