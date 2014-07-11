@@ -111,15 +111,9 @@
 (defcomp failed-job [])
 
 ;; various possible tasks unit can perform
-(defcomp job-dig [x y task-id]
-  :x  x
-  :y  y
-  :id task-id
-  :progress 500) ;; from 1000 to 0
+(defcomp job-dig [task-id]
+  :id task-id)
 
-(defcomp job-build-wall [x y task-id]
-  :x  x
-  :y  y
-  :id task-id
-  :progress 1000) ;; from 1000 to 0
+(defcomp job-build-wall [task-id]
+  :id task-id)
 

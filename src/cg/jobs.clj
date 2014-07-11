@@ -8,3 +8,8 @@
       (update-entity worker-id rem-c :want-job)
       (update-entity worker-id set-c (done-job))
       (update-entity worker-id set-c (job-queue jobs))))
+
+(defn complete-job [w id job-name result-comp]
+  (-> w
+      (update-entity id rem-c job-name)
+      (update-entity id set-c result-comp)))

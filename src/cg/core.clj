@@ -58,7 +58,7 @@
     (u/add-player w xy)))
 
 (defn new-spawn [w]
-  (-> (apply-times w 1 new-player)
+  (-> (apply-times w 5 new-player)
       (m/init-visible (s/random-place (:map w) s/passable? 40 40))))
 
 ;;; State
@@ -203,7 +203,7 @@
         ids (get-cnames-ids w [:worker])
         [x y] (pix->relative [x y])
         [abs-x abs-y] (relative->absolute [x y] (:camera game))]
-    (prn abs-x abs-y e action)
+    ;; (prn abs-x abs-y e action)
     (if (in-camera? x y width height)
       (cond
        (= action :move-to)

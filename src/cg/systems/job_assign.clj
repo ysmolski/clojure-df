@@ -73,19 +73,14 @@
             (if-let [[job-id [tx ty]] (get-nbrs-jobs w xy jobs)]
               (-> w 
                   (update-entity job-id rem-c :free)
-                  (queue-jobs worker-id [(job-dig tx ty job-id)])
-                  #_(update-entity worker-id rem-c :want-job)
-                  #_(update-entity worker-id set-c (job-dig tx ty job-id)))
+                  (queue-jobs worker-id [(job-dig job-id)]))
               (if-let [[job-id [x y] [tx ty]] (find-reachable w xy jobs)]
                 (let [job (get-e w job-id)]
                   (prn :job-assigned job-id worker-id tx ty x y)
                   (-> w 
                       (update-entity job-id rem-c :free)
                       (queue-jobs worker-id [(move-to x y)
-                                             (job-dig tx ty job-id)])
-                      #_(update-entity worker-id rem-c :want-job)
-                      #_(update-entity worker-id set-c (job-dig tx ty job-id))
-                      #_(update-entity worker-id set-c (move-to x y))))))))))))
+                                             (job-dig job-id)])))))))))))
 
 (defn system-assign-dig-tasks
   "take free workers and find next (closest?) jobs for them"
