@@ -83,7 +83,7 @@
     (-> (reduce #(region %1 %2 new-r) ecs cells)
         (update-in [:map] s/add-visibles hidden-cells)
         (update-in [:rc] s/rc-move old-r new-r)
-        (rem-ents-in-cells [:job] hidden-cells))))
+        (rem-ents-in-cells [:task-dig] hidden-cells))))
 
 (defn update-region
   "Adds region for cell xy based on neighbour cells.

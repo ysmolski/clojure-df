@@ -80,9 +80,9 @@
 (defcomp task-dig []
   :progress 500)
 
-(defcomp task-build-wall [from-what]
+(defcomp task-build-wall []
   :progress 500
-  :material-id from-what)
+  :material-id nil)
 
 ;; means that task can be assigned for the worker
 (defcomp free [])
