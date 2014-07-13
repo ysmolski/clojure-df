@@ -17,8 +17,11 @@
 (defn place [m [x y]]
   (-> m (nth x) (nth y)))
 
-(defn passable? [cell]
+(defn floor? [cell]
   (= (:form cell) :floor))
+
+(defn passable? [cell]
+  (floor? cell))
 
 (defn diggable? [cell]
   (= (:form cell) :diggable))
@@ -109,12 +112,13 @@
          false))
 
 (defn add-borders [m]
-  (let [size (count m)]
+  (let [size (count m)
+        b :diggable]
     (reduce #(-> %1
-                 (form [%2 0] :wall)
-                 (form [0 %2] :wall)
-                 (form [%2 (dec size)] :wall)
-                 (form [(dec size) %2] :wall))
+                 (form [%2 0] b)
+                 (form [0 %2] b)
+                 (form [%2 (dec size)] b)
+                 (form [(dec size) %2] b))
             m
             (range size))))
 
@@ -168,6 +172,10 @@
   (if (contains? rc r)
     (update-in rc [r] conj xy)
     (assoc rc r #{xy})))
+
+(defn rc-remove
+  [rc r xy]
+  (update-in rc [r] disj xy))
 
 (defn rc-cells [rc r]
   (rc r))

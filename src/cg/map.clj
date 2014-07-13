@@ -8,11 +8,21 @@
 (defn place [ecs [x y]]
   (get-in ecs [:map (int x) (int y)]))
 
+(defn ids
+  ([ecs [x y]]
+     (get-in ecs [:map (int x) (int y) :ids]))
+  ([ecs xy cname]
+     (ids-with-comp ecs (ids ecs xy) cname)))
+
 (defn form [ecs [x y] val]
   (update-in ecs [:map] s/form [(int x) (int y)] val))
 
-(defn region [ecs [x y] val]
-  (update-in ecs [:map] s/region [(int x) (int y)] val))
+(defn region
+  ([ecs [x y]]
+     (s/region (:map ecs) [(int x) (int y)]))
+  ([ecs [x y] val]
+     (update-in ecs [:map] s/region [(int x) (int y)] val))
+  )
 
 
 (defn rem-if-in-cell
@@ -72,6 +82,15 @@
       (region [x y] r)
       (update-in [:rc] s/rc-add r [x y])))
 
+(defn remove-region
+  "Sets cell [x y] to the region r and sets visible for it"
+  [ecs [x y]]
+  (let [r (region ecs [x y])]
+    (prn :rem-region [x y] r)
+    (-> ecs
+        (region [x y] nil)
+        (update-in [:rc] s/rc-remove r [x y]))))
+
 (defn move-region
   "Adds region old-r to region new-r and updates map.
   If region old-r visible then it makes new-r visible and vise versa."
@@ -109,5 +128,12 @@
   (-> ecs
       (form xy :floor)
       (update-region xy)))
+
+(defn put-construction
+  "Put construction into map and recalculates regions"
+  [ecs xy what]
+  (-> ecs
+      (form xy what)
+      (remove-region xy)))
 
 

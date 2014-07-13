@@ -19,6 +19,7 @@
 
            :free-dig [:task-dig :free]
            :free-build-wall [:task-build-wall :free]
+           :free-stone [:stone :free]
            })
 
 (defn round-coords
@@ -67,6 +68,9 @@
   :weight 0
   :size 0)
 
+;; means that it's real object in world with boundaries
+(defcomp real [])
+
 ;;;;
 ;; tasks, jobs and management of them
 
@@ -78,11 +82,10 @@
 (defcomp can-haul [])
 
 (defcomp task-dig []
-  :progress 500)
+  :progress 800)
 
 (defcomp task-build-wall []
-  :progress 500
-  :material-id nil)
+  :progress 500)
 
 ;; means that task can be assigned for the worker
 (defcomp free [])
@@ -114,6 +117,27 @@
 (defcomp job-dig [task-id]
   :id task-id)
 
-(defcomp job-build-wall [task-id]
-  :id task-id)
+(defcomp job-build-wall [task-id stone-id]
+  :id task-id
+  :stone stone-id)
 
+;;;;
+;;; Inventory
+
+;; if items is contained in somewhere then put this component to
+;; indicate where it belongs to
+(defcomp contained [id-where]
+  :id id-where)
+
+;; for now inventory is simple abstract backpack
+(defcomp inventory [ids]
+  :backpack ids)
+
+;; pickup might take some time. that's okay
+(defcomp pickup [id]
+  :id id
+  :progress 100)
+
+(defcomp put [id]
+  :id id
+  :progress 100)

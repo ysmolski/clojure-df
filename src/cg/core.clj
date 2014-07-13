@@ -8,6 +8,7 @@
   (:use cg.systems.job-assign)
   (:use cg.systems.next-job)
   (:use cg.systems.job-exec)
+  (:use cg.systems.inventory)
   (:import [com.badlogic.gdx.graphics Texture]
            [com.badlogic.gdx.graphics.glutils ShapeRenderer ShapeRenderer$ShapeType]
            [com.badlogic.gdx.graphics.g2d SpriteBatch BitmapFont])
@@ -58,7 +59,7 @@
     (u/add-player w xy)))
 
 (defn new-spawn [w]
-  (-> (apply-times w 5 new-player)
+  (-> (apply-times w 2 new-player)
       (m/init-visible (s/random-place (:map w) s/passable? 40 40))))
 
 ;;; State
@@ -76,7 +77,7 @@
                  :mouse-pos [0 0]}))
 
 (def colors {:white (g/color :white)
-             :yellow (g/color :yellow)})
+             :yellow (g/color 1 1 0 0.7)})
 
 ;;; view port
 
@@ -219,9 +220,13 @@
               system-guide
               system-path-find
               system-assign-dig-tasks
+              system-assign-build-tasks
+              system-pickup
+              system-move-contained
               system-next-job
               system-fail-job
-              system-dig])
+              system-dig
+              system-build])
 
 (defn on-tick
   "Handles ticks of the world, delta is the time passes since last tick"
@@ -278,9 +283,9 @@
 (defn draw-tile [batch cell x y tiles]
   (when (s/visible? cell)
     (do
-      (when-not (s/passable? cell)
+      (when (s/diggable? cell)
         (image batch (:rock tiles) :white x y))
-      (when-let [r (:region cell)]
+      (when (s/floor? cell)
         (image batch (:grass tiles) :white x y)))))
 
 (defn entity-info-str [w id]
@@ -302,11 +307,10 @@
             entities (map #(entity-info-str w %) ids)]
         (text font batch
               (str (abs 0) " " (abs 1)
-                   "\n"
-                   " " (:form cell) "\n"
-                   " " (:visible cell) "\n"
-                   " " (:region cell) "\n"
-                   ids)
+                   " " (:form cell)
+                   " " (:visible cell)
+                   " " (:region cell)
+                   " " ids)
               (inc width) height)
         (when (pos? (count entities))
           (text-wrapped font batch

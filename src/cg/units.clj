@@ -21,7 +21,15 @@
   (load-entity w :stone
                (stone :gabbro)
                (position x y)
-               (renderable :stone :white)))
+               (renderable :stone :white)
+               (free)
+               (real)))
+
+(defn add-wall [w x y]
+  (load-entity w :wall
+               (position x y)
+               (renderable :wall :white)
+               (real)))
 
 (defn add-player [w [x y]]
   (load-entity w :unit
@@ -29,6 +37,8 @@
                (position (float x) (float y))
                (worker)
                (renderable :char :white)
+               (real)
+               (inventory #{})
                (can-dig)
                (can-build)
                (can-haul)
