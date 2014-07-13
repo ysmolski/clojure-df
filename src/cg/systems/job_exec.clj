@@ -59,7 +59,7 @@
         stone-xy (round-coords (:position stone))
         progress (-> task task-name :progress)
         occupied (m/ids w task-xy :real)]
-    ;; (prn :build-do job-name task-name e-xy :o occupied :t task)
+    ;; (prn :build-do e-xy :o occupied :t task)
     (if (and (empty? occupied)
              (contacting? e-xy task-xy)
              (contacting? stone-xy task-xy))
@@ -73,11 +73,13 @@
             (u/add-wall (task-xy 0) (task-xy 1)))
         (update-entity w task-id #(update-in %1 [task-name :progress] - (math/round time))))
       ;; remove job from id and report failed job for entity
-      (-> w
-          (i/uncontain id stone-id)
-          (update-entity stone-id set-c (free))
-          (update-entity task-id set-c (free))
-          (complete-job id job-name (failed-job))))))
+      (do
+        (prn :build-abort occupied e-xy task)
+        (-> w
+            (i/uncontain id stone-id)
+            (update-entity stone-id set-c (free))
+            (update-entity task-id set-c (free))
+            (complete-job id job-name (failed-job)))))))
 
 (defn system-build
   [w time]

@@ -63,6 +63,8 @@
   :texture t
   :color color)
 
+(defcomp wall [])
+
 (defcomp container []
   :items []
   :weight 0
@@ -70,7 +72,6 @@
 
 ;; means that it's real object in world with boundaries
 (defcomp real [])
-
 ;;;;
 ;; tasks, jobs and management of them
 

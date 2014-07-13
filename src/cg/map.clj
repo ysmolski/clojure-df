@@ -21,8 +21,7 @@
   ([ecs [x y]]
      (s/region (:map ecs) [(int x) (int y)]))
   ([ecs [x y] val]
-     (update-in ecs [:map] s/region [(int x) (int y)] val))
-  )
+     (update-in ecs [:map] s/region [(int x) (int y)] val)))
 
 
 (defn rem-if-in-cell

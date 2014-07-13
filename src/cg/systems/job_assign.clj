@@ -142,3 +142,27 @@
     res
     w))
 
+(defn passable-nbr
+  "finds passable neighbour next to x y"
+  [w xy]
+  (->> xy
+       (astar/neighbors (:map-size w))
+       (some #(if (s/passable? (m/place w %)) %))))
+
+(defn escape-walls
+  "For any new found worker it tries to find matching job
+  which is accessible and can have all needed materials"
+  [e time w]
+  (let [pos (round-coords (:position e))
+        cell (m/place w pos)]
+    (if (s/passable? cell)
+      e
+      (let [[x y] (passable-nbr w pos)]
+        (prn :escape-wall pos :to [x y])
+        (queue-jobs e [(move-to x y)])))))
+
+(defn system-escape-walls
+  "take free workers and find next (closest?) jobs for them"
+  [w time]
+  (update-comps w [:want-job] escape-walls time w))
+

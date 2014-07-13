@@ -29,6 +29,7 @@
   (load-entity w :wall
                (position x y)
                (renderable :wall :white)
+               (wall)
                (real)))
 
 (defn add-player [w [x y]]

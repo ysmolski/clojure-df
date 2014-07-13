@@ -12,18 +12,18 @@
   (s/passable? (s/place m xy)))
 
 
-(defn path-find-add [e time mp]
+(defn path-find-add [e time map]
   (let [from-xy (round-coords (:position e))
         to-xy (round-coords (:move-to e))
-        new-path (astar/path from-xy to-xy 11 mp get-cell-cost filter-nbr)]
+        new-path (astar/path from-xy to-xy 11 map get-cell-cost filter-nbr)]
     (prn :path-found from-xy to-xy new-path)
     (if (empty? (:xys new-path))
       (-> e
           (rem-c :move-to)
           (set-c (failed-job)))
       (-> e
-          (set-c (path (:xys new-path)))
-          (rem-c :move-to)))))
+          (rem-c :move-to)
+          (set-c (path (:xys new-path)))))))
 
 (defn system-path-find [w time]
   (update-comps w (:path-find node) path-find-add time (:map w)))

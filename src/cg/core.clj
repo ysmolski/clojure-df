@@ -59,7 +59,7 @@
     (u/add-player w xy)))
 
 (defn new-spawn [w]
-  (-> (apply-times w 2 new-player)
+  (-> (apply-times w 20 new-player)
       (m/init-visible (s/random-place (:map w) s/passable? 40 40))))
 
 ;;; State
@@ -219,12 +219,13 @@
 (def systems [system-move
               system-guide
               system-path-find
+              system-escape-walls
               system-assign-dig-tasks
               system-assign-build-tasks
               system-pickup
               system-move-contained
-              system-next-job
-              system-fail-job
+              system-done-job
+              system-failed-job
               system-dig
               system-build])
 
