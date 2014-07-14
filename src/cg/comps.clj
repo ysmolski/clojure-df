@@ -83,10 +83,10 @@
 (defcomp can-haul [])
 
 (defcomp task-dig []
-  :progress 800)
+  :progress 100)
 
 (defcomp task-build-wall []
-  :progress 500)
+  :progress 100)
 
 ;; means that task can be assigned for the worker
 (defcomp free [])
@@ -137,8 +137,8 @@
 ;; pickup might take some time. that's okay
 (defcomp pickup [id]
   :id id
-  :progress 100)
+  :progress 50)
 
 (defcomp put [id]
   :id id
-  :progress 100)
+  :progress 50)

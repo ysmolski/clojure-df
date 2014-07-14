@@ -5,7 +5,7 @@
   (:require [cg.map :as m]
             [cg.site :as s]
             [cg.astar :as astar]
-            [cg.jobs :refer :all]))
+            [cg.jobs :as j]))
 
 (defn find-reachable-nbrs
   "finds all neighbour points of to-xy reachable from from-xy"
@@ -19,11 +19,15 @@
 (defn sort-by-nearest
   "returns list of ids and entity values sorted by the distance from-xy to target"
   [w from-xy targets]
-  (let [[fx fy] from-xy]
-    (time (sort-by (fn [[_ e]]
-                     (let [[tx ty] (coords (:position e))]
-                       (distance fx fy tx ty)))
-                   targets))))
+  (let [[fx fy] from-xy
+        start (timer)
+        res (sort-by (fn [[_ e]]
+                       (let [[tx ty] (coords (:position e))]
+                         (distance fx fy tx ty)))
+                     targets)
+        elapsed (timer-end start)]
+    (prn :sort-by-nearest elapsed from-xy (map #(% 0) targets))
+    res))
 
 (defn sort-by-id [w from-xy targets]
   (let [[fx fy] from-xy]
@@ -91,14 +95,14 @@
             (if-let [job-id (get-nbrs-dig-jobs w xy jobs)]
               (-> w 
                   (update-entity job-id rem-c :free)
-                  (queue-jobs worker-id [(job-dig job-id)]))
+                  (j/enqueue worker-id [(job-dig job-id)]))
               (if-let [[job-id [x y]] (find-reachable-nbr w xy jobs)]
                 (let []
                   (prn :dig-assigned job-id worker-id  x y)
                   (-> w 
                       (update-entity job-id rem-c :free)
-                      (queue-jobs worker-id [(move-to x y)
-                                             (job-dig job-id)])))))))))))
+                      (j/enqueue worker-id [(move-to x y)
+                                            (job-dig job-id)])))))))))))
 
 (defn system-assign-dig-tasks
   "take free workers and find next (closest?) jobs for them"
@@ -129,11 +133,11 @@
                       (-> w 
                           (update-entity task-id rem-c :free)
                           (update-entity stone-id rem-c :free)
-                          (queue-jobs worker-id [(move-to sx sy)
-                                                 (pickup stone-id)
-                                                 (move-to tx ty)
-                                                 #_(put stone-id)
-                                                 (job-build-wall task-id stone-id)])))))))))))))
+                          (j/enqueue worker-id
+                                     [(move-to sx sy)
+                                      (pickup stone-id)
+                                      (move-to tx ty)
+                                      (job-build-wall task-id stone-id)])))))))))))))
 
 (defn system-assign-build-tasks
   "take free workers and find next (closest?) jobs for them"
@@ -157,9 +161,13 @@
         cell (m/place w pos)]
     (if (s/passable? cell)
       e
-      (let [[x y] (passable-nbr w pos)]
-        (prn :escape-wall pos :to [x y])
-        (queue-jobs e [(move-to x y)])))))
+      (if-let [[x y] (passable-nbr w pos)]
+        (do
+          (prn :escape-wall pos :to [x y])
+          (j/enqueue e [(move-to x y)]))
+        (do
+          (prn :escape-stuck pos)
+          e)))))
 
 (defn system-escape-walls
   "take free workers and find next (closest?) jobs for them"

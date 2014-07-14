@@ -7,7 +7,7 @@
             [cg.inv :as i]
             [cg.units :as u]
             [cg.astar :as astar]
-            [cg.jobs :refer :all]))
+            [cg.jobs :as j]))
 
 ;; EXECUTE JOBS
 
@@ -30,14 +30,14 @@
     (if (contacting? e-xy job-xy)
       (if (neg? progress)
         (-> w
-            (complete-job id job-name (done-job))
+            (j/complete id job-name)
             (rem-e job-id)
             (m/dig job-xy)
             (add-with-prob 0.5 u/add-stone (job-xy 0) (job-xy 1)))
         (update-entity w job-id #(update-in %1 [task-name :progress] - (math/round time))))
       ;; remove job from id and report failed job for entity
       (-> w
-          (complete-job id job-name (failed-job))))))
+          (j/fail id job-name)))))
 
 (defn system-dig
   [w time]
@@ -65,7 +65,7 @@
              (contacting? stone-xy task-xy))
       (if (neg? progress)
         (-> w
-            (complete-job id job-name (done-job))
+            (j/complete id job-name)
             (i/uncontain id stone-id)
             (rem-e task-id)
             (rem-e stone-id)
@@ -74,15 +74,18 @@
         (update-entity w task-id #(update-in %1 [task-name :progress] - (math/round time))))
       ;; remove job from id and report failed job for entity
       (do
-        (prn :build-abort occupied e-xy task)
+        (prn :build-abort occupied e-xy (job-name e))
         (-> w
-            (i/uncontain id stone-id)
-            (update-entity stone-id set-c (free))
-            (update-entity task-id set-c (free))
-            (complete-job id job-name (failed-job)))))))
+            (j/fail id job-name)
+            (j/abort (job-name e))
+            ;; (i/uncontain id stone-id)
+            ;; (update-entity stone-id set-c (free))
+            ;; (update-entity task-id set-c (free))
+            )))))
 
 (defn system-build
   [w time]
   ;;(update-comps w [:job-dig] try-dig time w)
   (let [ids (get-cnames-ids w [:job-build-wall])]
     (reduce #(try-build %1 %2 :job-build-wall :task-build-wall time) w ids)))
+

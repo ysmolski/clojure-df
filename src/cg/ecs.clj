@@ -25,7 +25,7 @@
 
 (defmacro defcomp [name params & r]
   `(defn ~name ~params
-     (hash-map ::name ~(keyword (clojure.core/name name)) ~@r)))
+     (hash-map :cname ~(keyword (clojure.core/name name)) ~@r)))
 
 ;;;; 1st level
 ;;;; internal representation should be hidden
@@ -167,17 +167,17 @@
 (defn set-c
   "adds component to entity. Two-Arguments version should be passed to update-entity only"
   ([entity comp]
-     (let [cname (::name comp)]
-       (assoc entity cname (dissoc comp ::name))))
+     (let [cname (:cname comp)]
+       (assoc entity cname comp)))
   ([ecs entity-id c]
-     (let [cname (::name c)
-           c-without-name (dissoc c ::name)
+     (let [cname (:cname c)
+           ;; c-without-name (dissoc c :cname)
            e (get-e ecs entity-id)]
        (-> (apply-update-fns ecs entity-id nil e)
            #_(if (= cname :position)
                (map-add-id ecs [(:x c) (:y c)] entity-id)
                ecs)
-           (update-in [:etoc entity-id] assoc cname c-without-name)
+           (update-in [:etoc entity-id] assoc cname c)
            (update-in [:ctoe cname] pre-set entity-id)))))
 
 (defn rem-c

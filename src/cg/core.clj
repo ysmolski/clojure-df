@@ -6,7 +6,7 @@
   (:use cg.systems.guide)
   (:use cg.systems.pathfind)
   (:use cg.systems.job-assign)
-  (:use cg.systems.next-job)
+  (:use cg.systems.job-manager)
   (:use cg.systems.job-exec)
   (:use cg.systems.inventory)
   (:import [com.badlogic.gdx.graphics Texture]
@@ -59,7 +59,7 @@
     (u/add-player w xy)))
 
 (defn new-spawn [w]
-  (-> (apply-times w 20 new-player)
+  (-> (apply-times w 5 new-player)
       (m/init-visible (s/random-place (:map w) s/passable? 40 40))))
 
 ;;; State

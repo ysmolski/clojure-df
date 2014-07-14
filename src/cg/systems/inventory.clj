@@ -7,29 +7,31 @@
             [cg.map :as m]
             [cg.units :as u]
             [cg.astar :as astar]
-            [cg.jobs :refer :all]))
+            [cg.jobs :as j]))
 
 ;; EXECUTE JOBS
 
 (defn try-pickup
   "tries to pickup object and put it into entity inventory"
-  [w id jobname time]
+  [w id job-name time]
   (let [e (get-e w id)
         e-xy (round-coords (e :position))
-        item-id (-> e jobname :id)
+        job (job-name e)
+        item-id (:id job)
         item (get-e w item-id)
-        item-xy (round-coords (:position item))
-        progress (-> e jobname :progress)]
+        item-xy (round-coords (:position item))]
     ;;(prn :job-do job-name task-name e-xy job)
     (if (contacting? e-xy item-xy)
-      (if (neg? progress)
+      (if (neg? (:progress job))
         (-> w
-            (complete-job id jobname (done-job))
+            (j/complete id job-name)
             (i/contain id item-id))
-        (update-entity w id #(update-in %1 [jobname :progress] - (math/round time))))
+        (update-entity w id #(update-in %1 [job-name :progress] - (math/round time))))
       ;; remove job from id and report failed job for entity
       (-> w
-          (complete-job id jobname (failed-job))))))
+          (j/fail id job-name)
+          (j/abort w job)
+          #_(update-entity item-id set-c :free)))))
 
 (defn system-pickup
   [w time]
