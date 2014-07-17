@@ -30,8 +30,7 @@
       ;; remove job from id and report failed job for entity
       (-> w
           (j/fail id job-name)
-          (j/abort w job)
-          #_(update-entity item-id set-c :free)))))
+          (j/abort w job)))))
 
 (defn system-pickup
   [w time]

@@ -3,20 +3,6 @@
   (:require [cg.comps :refer :all]
             [cg.ecs :refer :all]))
 
-(defn add-task-dig [w x y]
-  (load-entity w :task-dig
-               (task-dig)
-               (position x y)
-               (renderable :dig :yellow)
-               (free)))
-
-(defn add-task-build-wall [w x y]
-  (load-entity w :task-build-wall
-               (task-build-wall)
-               (position x y)
-               (renderable :wall :yellow)
-               (free)))
-
 (defn add-stone [w x y]
   (load-entity w :stone
                (stone :gabbro)

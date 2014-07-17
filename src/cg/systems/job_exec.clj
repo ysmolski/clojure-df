@@ -77,11 +77,7 @@
         (prn :build-abort occupied e-xy (job-name e))
         (-> w
             (j/fail id job-name)
-            (j/abort (job-name e))
-            ;; (i/uncontain id stone-id)
-            ;; (update-entity stone-id set-c (free))
-            ;; (update-entity task-id set-c (free))
-            )))))
+            (j/abort (job-name e)))))))
 
 (defn system-build
   [w time]

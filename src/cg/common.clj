@@ -1,6 +1,28 @@
 (ns cg.common
   (:require [clojure.math.numeric-tower :as math]))
 
+;; constants
+
+(def ui
+  {:window-width 1000
+   :window-height 700
+   :right-panel-width 300
+   :window-border 10
+   :tile-size 16
+   :text-size 15
+   :text-size-small 10
+   :char-color 250
+   :ui-color 40
+   :wall-color 80
+   :background-color 25
+   :foreground-color 200
+   :scroll-amount 10
+   :fps-cap 60
+   :ups-cap 100
+   })
+
+;; utils
+
 (defn timer [] (System/nanoTime))
 
 (defn timer-end [start]
@@ -24,7 +46,7 @@
   (let [dx (- x2 x1)
         dy (- y2 y1)
         dist (distance dx dy)]
-    (if (< dist 0.2)
+    (if (< dist 0.1)
       [0 0]
       (let [relation (/ (float speed)
                         dist)
@@ -45,6 +67,14 @@
     (if (>= n b)
       b
       n)))
+
+(defn in-bound?
+  "returns true if 0 <= x < width and 0 <= y < height"
+  [x y width height]
+  (and (>= x 0)
+       (>= y 0)
+       (< x width)
+       (< y height)))
 
 (defn contacting? [[x1 y1] [x2 y2]]
   (and (>= 1 (math/abs (- x1 x2)))
