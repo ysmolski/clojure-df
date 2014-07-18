@@ -68,6 +68,11 @@
       b
       n)))
 
+(defn bound-rect
+  [[x1 y1] [x2 y2] w h]
+  [[(bound w x1) (bound h y1)]
+   [(bound w x2) (bound h y2)]])
+
 (defn in-bound?
   "returns true if 0 <= x < width and 0 <= y < height"
   [x y width height]

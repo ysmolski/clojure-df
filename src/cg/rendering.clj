@@ -155,15 +155,17 @@
   [world action camera]
   (fn [x y]
     (let [[absx absy] (relative->absolute [x y] camera)]
-      (t/cell-taskable? world action absx absy))))
+      (t/cell-taskable? world action [absx absy]))))
 
 (defn render-selected-tiles
-  [shape pred [x1 y1] [x2 y2]]
-  (doseq [x (range (min x1 x2) (inc (max x1 x2)))
-          y (range (min y1 y2) (inc (max y1 y2)))]
-    (when (pred x y)
-      (doto shape
-        (square :selection x y)))))
+  [shape pred [x1 y1] [x2 y2] camera]
+  (let [[w h] (:size camera)
+        [[x1 y1] [x2 y2]] (bound-rect [x1 y1] [x2 y2] (dec w) (dec h))]
+    (doseq [x (range x1 (inc x2))
+            y (range y1 (inc y2))]
+      (when (pred x y)
+        (doto shape
+          (square :selection x y))))))
 
 (defn render-tick [game]
   (let [w (:world game)
@@ -201,26 +203,25 @@
     (.draw font batch (str (count (-> game :world :etoc))) 240 15)
     (.draw font batch (str (-> game :update-time)) 290 15)
     (.draw font batch (str (-> game :mouse-action)) 350 15)
+    (.draw font batch (str (-> game :first-click)) 410 15)
+    (.draw font batch (str (-> game :mouse-abs)) 470 15)
     (draw-info font batch game)
     (.end batch)
     
-    (if-let [[x1 y1] (:mouse-start game)]
-      (let [[x2 y2] (:mouse-pos game)
-            w (- x2 x1)
-            h (- y2 y1)
-            [relx1 rely1] (pix->relative [x1 y1])
-            [relx2 rely2] (pix->relative [x2 y2])
-            ]
-        ;; (prn [x1 y1] [x2 y2] [relx1 rely1] [relx2 rely2])
+    (if-let [xy1 (:first-click game)]
+      (let [xy2 (:mouse-abs game)
+            [xy1 xy2] (abs->rel xy1 xy2 c)
+            [[relx1 rely1] [relx2 rely2]] (norm-rect xy1 xy2)]
+        ;; (prn xy1 xy2 [relx1 rely1] [relx2 rely2])
         (g/gl! :gl-enable (g/gl :gl-blend))
         (g/gl! :gl-blend-func (g/gl :gl-src-alpha) (g/gl :gl-one-minus-src-alpha))
         (doto shape
           (.begin ShapeRenderer$ShapeType/Line)
-          (.setColor (:black colors))
-          (.rect (inc x1) (dec y1) w h)
-          (.setColor (:selection-weak colors))
-          (.rect x1 y1 w h)
-          (render-selected-tiles taskable? [relx1 rely1] [relx2 rely2])
+          ;; (.setColor (:black colors))
+          ;; (.rect (inc x1) (dec y1) w h)
+          ;; (.setColor (:selection-weak colors))
+          ;; (.rect x1 y1 w h)
+          (render-selected-tiles taskable? [relx1 rely1] [relx2 rely2] c)
           (.end))
         (g/gl! :gl-disable (g/gl :gl-blend))))))
 

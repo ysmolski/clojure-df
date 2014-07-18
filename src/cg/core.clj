@@ -51,11 +51,12 @@
 
 (def game (atom {:world nil
                  :paused false
-                 :update-time 0
+                 :update-time 1
                  :frame 0
                  :frame-time 0
                  :mouse-action :task-dig
-                 :mouse-start nil
+                 :first-click nil
+                 :mouse-abs nil
                  :mouse-pos [0 0]}))
 
 
@@ -93,19 +94,40 @@
                     29 [-1 0]
                     32 [1 0]})
 
+(defn mouse-abs
+  "Converts x, y pixel screen position into absolute coordinates on map.
+  Returns two elements vector"
+  [game x y]
+  (let [rel-xy (pix->relative [x y])]
+    (relative->absolute rel-xy (:camera game))))
+
+(defn mouse-moved
+  [game [x y]]
+  (let [[abs-x abs-y] (mouse-abs game x y)]
+    (assoc game
+      :mouse-pos [x y]
+      :mouse-abs [abs-x abs-y])))
+
+(defn mouse-moved!
+  [screen _]
+  (let [[x y] (r/unproject-input screen)]
+    (swap! game mouse-moved [x y])))
+
 (defn on-key
   "Handles key presses. Returns new state of the world"
   [game key]
   ;;(set-val w 0 :health :count key)
   (condp = key
     (g/key-code :space) (update-in game [:paused] not)
-    (g/key-code :escape) (assoc game :mouse-start nil)
+    (g/key-code :escape) (assoc game :first-click nil)
     (g/key-code :f) (assoc game :mouse-action :task-dig)
     (g/key-code :g) (assoc game :mouse-action :move-to)
     (g/key-code :b) (assoc game :mouse-action :task-build-wall)
     (let [delta (map #(* % (ui :scroll-amount))
                      (key-to-scroll key [0 0]))]
-      (update-in game [:camera] bound-view delta)
+      (-> game
+          (update-in [:camera] bound-view delta)
+          (mouse-moved (:mouse-pos game)))
       ;;(prn delta @(game :viewport))
       )))
 
@@ -118,7 +140,7 @@
         [width height] (-> game :camera :size)
         [rel-x rel-y] (pix->relative [x y])
         [abs-x abs-y] (relative->absolute [rel-x rel-y] (:camera game))]
-    (prn [x y] [abs-x abs-y] e action)
+    (prn :on-mouse [x y] [abs-x abs-y] e action)
     (if (in-bound? rel-x rel-y width height)
       (cond
        (= action :move-to)
@@ -128,37 +150,31 @@
                   j/enqueue [(move-to abs-x abs-y)])
 
        (#{:task-dig :task-build-wall} action)
-       (assoc game :mouse-start [x y])
-       #_(update-in game [:world] t/designate-task action abs-x abs-y)
+       (assoc game :first-click [abs-x abs-y])
+       #_(update-in game [:world] t/designate-task action [abs-x abs-y])
        
        :else game)
       game)))
 
-;; (defn mouse-released
-;;   [game x y e xy1 xy2]
-;;   ;; (prn x y e)
-;;   (if-let [[x1 y1] (:mouse-start game)]
-;;     (let [[x2 y2] (:mouse-pos game)
-;;           w (:world game)
-;;           action (:mouse-action game)
-;;           [width height] (-> game :camera :size)
-;;           rel1 (pix->relative)
-;;           [abs-x abs-y] (relative->absolute [rel-x rel-y] (:camera game))]
-;;       (prn [x y] [abs-x abs-y] e action)
-;;       (if (in-bound? rel-x rel-y width height)
-;;         (cond
-;;          (= action :move-to)
-;;          (update-in game [:world]
-;;                     update-entities
-;;                     (get-cnames-ids w [:worker])
-;;                     j/enqueue [(move-to abs-x abs-y)])
-
-;;          (#{:task-dig :task-build-wall} action)
-;;          (assoc game :mouse-start [x y])
-;;          #_(update-in game [:world] t/designate-task action abs-x abs-y)
-         
-;;          :else game)
-;;         game))))
+(defn mouse-released
+  [game]
+  ;; (prn x y e)
+  (if-let [xy1 (:first-click game)]
+    (let [xy2 (:mouse-abs game)
+          map-size (dec (-> game :world :map-size))
+          [xy1 xy2] (norm-rect xy1 xy2)
+          [xy1 xy2] (bound-rect xy1 xy2 map-size map-size)
+          w (:world game)
+          action (:mouse-action game)]
+      (prn :released xy1 xy2 action)
+      (if (contains? #{:task-dig :task-build-wall} action)
+        (do
+          (prn :released2)
+          (-> game
+              (update-in [:world] t/designate-area action xy1 xy2)
+              (assoc :first-click nil)))
+        game))
+    game))
 
 (def systems [system-move
               system-guide
@@ -213,7 +229,6 @@
         (recur))))
   (prn :updating-exited))
 
-
 (g/defscreen main-screen
   :on-show
   (fn [screen _]
@@ -236,8 +251,7 @@
     (swap! game on-key key))
 
   :on-mouse-moved
-  (fn [screen _]
-    (swap! game assoc-in [:mouse-pos] (r/unproject-input screen)))
+  mouse-moved!
 
   :on-touch-down 
   (fn [screen _]
@@ -246,14 +260,11 @@
   
   :on-touch-up
   (fn [screen _]
-    ;; (swap! game mouse-released)
-    (swap! game assoc-in [:mouse-start] nil))
+    #_(swap! game assoc :first-click nil)
+    (swap! game mouse-released))
 
   :on-touch-dragged
-  (fn [screen _]
-    (let [[x y] (r/unproject-input screen)]
-      (swap! game assoc :mouse-pos [x y])
-      #_(swap! game on-mouse x y :down))))
+  mouse-moved!)
 
 (g/defgame cg-game
     :on-create

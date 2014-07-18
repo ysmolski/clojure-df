@@ -28,7 +28,26 @@
   "converts relative (viewport) position to absolute (map) position"
   [[x y] camera]
   (let [[vp-x vp-y] (:pos camera)]
-    [(+ vp-x x)
-     (+ vp-y y)]))
+    [(+ x vp-x)
+     (+ y vp-y)]))
+
+(defn norm-rect
+  [[x1 y1] [x2 y2]]
+  (let [ax1 (min x1 x2)
+        ax2 (max x1 x2)
+        ay1 (min y1 y2)
+        ay2 (max y1 y2)]
+    [[ax1 ay1]
+     [ax2 ay2]]))
+
+(defn abs->rel
+  ([[x y] camera]
+     (let [[vp-x vp-y] (:pos camera)]
+       [(- x vp-x)
+        (- y vp-y)]))
+  ([xy1 xy2 camera]
+     (let [xy1 (abs->rel xy1 camera)
+           xy2 (abs->rel xy2 camera)]
+       [xy1 xy2])))
 
 ;;(def pix->absolute (comp relative->absolute pix->relative))
