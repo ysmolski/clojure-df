@@ -44,7 +44,7 @@
 ;;; State
 
 ;;; paused - if the game is paused
-;;; mouse-actions - what does action of mouse have effect on. possible
+;;; actions - what does action of mouse have effect on. possible
 ;;; values: :move-to :dig :build-wall
 
 (def map-size 120)
@@ -54,7 +54,8 @@
                  :update-time 1
                  :frame 0
                  :frame-time 0
-                 :mouse-action :task-dig
+                 :action :task-dig
+                 :selection nil
                  :first-click nil
                  :mouse-abs nil
                  :mouse-pos [0 0]}))
@@ -120,9 +121,9 @@
   (condp = key
     (g/key-code :space) (update-in game [:paused] not)
     (g/key-code :escape) (assoc game :first-click nil)
-    (g/key-code :f) (assoc game :mouse-action :task-dig)
-    (g/key-code :g) (assoc game :mouse-action :move-to)
-    (g/key-code :b) (assoc game :mouse-action :task-build-wall)
+    (g/key-code :f) (assoc game :action :task-dig)
+    (g/key-code :g) (assoc game :action :move-to)
+    (g/key-code :b) (assoc game :action :task-build-wall)
     (let [delta (map #(* % (ui :scroll-amount))
                      (key-to-scroll key [0 0]))]
       (-> game
@@ -136,7 +137,7 @@
   [game x y e]
   ;; (prn x y e)
   (let [w (:world game)
-        action (:mouse-action game)
+        action (:action game)
         [width height] (-> game :camera :size)
         [rel-x rel-y] (pix->relative [x y])
         [abs-x abs-y] (relative->absolute [rel-x rel-y] (:camera game))]
@@ -165,14 +166,12 @@
           [xy1 xy2] (norm-rect xy1 xy2)
           [xy1 xy2] (bound-rect xy1 xy2 map-size map-size)
           w (:world game)
-          action (:mouse-action game)]
+          action (:action game)]
       (prn :released xy1 xy2 action)
       (if (contains? #{:task-dig :task-build-wall} action)
-        (do
-          (prn :released2)
-          (-> game
-              (update-in [:world] t/designate-area action xy1 xy2)
-              (assoc :first-click nil)))
+        (-> game
+            (assoc :selection [xy1 xy2])
+            (assoc :first-click nil))
         game))
     game))
 
@@ -189,12 +188,12 @@
               system-dig
               system-build])
 
-(defn on-tick
+(defn update-world
   "Handles ticks of the world, delta is the time passes since last tick"
-  [w time]
+  [w delta]
   (let [[ts w] (reduce (fn [[ts w] s]
                          (let [t (timer)
-                               w (s w time)
+                               w (s w delta)
                                t (timer-end t)]
                            [(conj ts t) w]))
                        [[] w] systems)]
@@ -207,6 +206,19 @@
 (defn averager [& args]
   (int (/ (apply + args) (count args))))
 
+(defn interface [game]
+  (if-let [[xy1 xy2] (:selection game)]
+    (-> game
+        (update-in [:world] t/designate-area (:action game) xy1 xy2)
+        (assoc :selection nil))
+    game))
+
+(defn update-game
+  [game delta]
+  (-> game
+      (interface)
+      (update-in [:world] update-world delta)))
+
 (defn updating []
   (loop []
     (let [paused (:paused @game)
@@ -215,7 +227,7 @@
           new-game (if paused
                      game
                      (do
-                       (swap! game update-in [:world] on-tick update-sleep-ms)
+                       (swap! game update-game update-sleep-ms)
                        (comment (prn :on-tick (inc (:frame @game)) )
                                 (swap! game update-in [:frame] inc)
                                 (swap! game assoc :frame-time (timer)))))
