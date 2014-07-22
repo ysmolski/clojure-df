@@ -23,6 +23,9 @@
   ([ecs [x y] val]
      (update-in ecs [:map] s/region [(int x) (int y)] val)))
 
+(defn storage [ecs [x y] id]
+  (assoc-in ecs [:map (int x) (int y) :storage] id))
+
 
 (defn rem-if-in-cell
   "Removes from ECS entities found in cell xy for which (pred entity-id) is true"

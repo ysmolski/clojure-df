@@ -53,6 +53,9 @@
   ([m [x y]]
      (get-in m [x y :visible])))
 
+(defn storage? [cell]
+  (:storage cell))
+
 (defn form-if-previous [m [x y] form previous-form]
   (update-in m [x y] #(if (= previous-form (:form %))
                         (assoc % :form form)

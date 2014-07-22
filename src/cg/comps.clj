@@ -142,3 +142,6 @@
 (defcomp put [id]
   :id id
   :progress 50)
+
+(defcomp store [cells]
+  :cells (into {} (map (fn [x] [x #{}]) cells)))

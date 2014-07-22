@@ -53,7 +53,8 @@
      :char (:object (texture (aget tiles 6 0)))
      :dig (:object (texture (aget tiles 6 5)))
      :wall (:object (texture (aget tiles 1 5)))
-     :stone (:object (texture (aget tiles 6 6)))}))
+     :stone (:object (texture (aget tiles 6 6)))
+     :wood (:object (texture (aget tiles 5 9)))}))
 
 (defn add-renderers [game]
   (assoc game :renderer
@@ -114,10 +115,13 @@
 (defn draw-tile [batch cell x y tiles]
   (when (s/visible? cell)
     (do
-      (when (s/diggable? cell)
-        (image batch (:rock tiles) :white x y))
-      (when (s/floor? cell)
-        (image batch (:grass tiles) :white x y)))))
+      (if (s/storage? cell)
+        (image batch (:wood tiles) :white x y)
+        (do
+          (when (s/diggable? cell)
+            (image batch (:rock tiles) :white x y))
+          (when (s/floor? cell)
+            (image batch (:grass tiles) :white x y)))))))
 
 (defn entity-info-str [w id]
   (let [e (get-e w id)
@@ -141,13 +145,19 @@
                    " " (:form cell)
                    " " (:visible cell)
                    " " (:region cell)
+                   " " (:storage cell)
                    " " ids)
               (inc width) height)
+        (when (s/storage? cell)
+          (text font batch
+                (str "storage #" (:storage cell)
+                     " " (:cells (:store (get-e w (:storage cell)))))
+                (inc width) (dec height)))        
         (when (pos? (count entities))
           (text-wrapped font batch
                         (apply str (interpose " " entities))
                         (inc width)
-                        (dec height)
+                        (- height 2)
                         (:right-panel-width ui)))))))
 
 (defn get-task-filter

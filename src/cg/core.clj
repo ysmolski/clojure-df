@@ -47,6 +47,10 @@
 ;;; actions - what does action of mouse have effect on. possible
 ;;; values: :move-to :dig :build-wall
 
+(def selection-actions #{:task-dig
+                         :task-build-wall
+                         :task-storage})
+
 (def map-size 120)
 
 (def game (atom {:world nil
@@ -124,6 +128,7 @@
     (g/key-code :f) (assoc game :action :task-dig)
     (g/key-code :g) (assoc game :action :move-to)
     (g/key-code :b) (assoc game :action :task-build-wall)
+    (g/key-code :t) (assoc game :action :task-storage)
     (let [delta (map #(* % (ui :scroll-amount))
                      (key-to-scroll key [0 0]))]
       (-> game
@@ -150,7 +155,7 @@
                   (get-cnames-ids w [:worker])
                   j/enqueue [(move-to abs-x abs-y)])
 
-       (#{:task-dig :task-build-wall} action)
+       (selection-actions action)
        (assoc game :first-click [abs-x abs-y])
        #_(update-in game [:world] t/designate-task action [abs-x abs-y])
        
@@ -168,7 +173,7 @@
           w (:world game)
           action (:action game)]
       (prn :released xy1 xy2 action)
-      (if (contains? #{:task-dig :task-build-wall} action)
+      (if (contains? selection-actions action)
         (-> game
             (assoc :selection [xy1 xy2])
             (assoc :first-click nil))
