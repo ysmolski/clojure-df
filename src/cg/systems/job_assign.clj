@@ -29,6 +29,18 @@
     (prn :sort-by-nearest elapsed from-xy (map #(% 0) targets))
     res))
 
+(defn sort-by-nearest-cell
+  "returns list of ids and entity values sorted by the distance from-xy to target"
+  [w from-xy targets]
+  (let [[fx fy] from-xy
+        start (timer)
+        res (sort-by (fn [[tx ty]]
+                       (distance fx fy tx ty))
+                     targets)
+        elapsed (timer-end start)]
+    (prn :sort-by-nearest-cell elapsed from-xy targets)
+    res))
+
 (defn sort-by-id [w from-xy targets]
   (let [[fx fy] from-xy]
     (sort-by (fn [[id _]] id) targets)))
@@ -69,6 +81,22 @@
         (if-not (s/connected? (:map w) from-xy to-xy)
           (recur w (rest targets))
           [id to-xy])))))
+
+(defn find-reachable-cell
+  "Tries to find one reachable target identified by pair of coordinates from xy.
+  Returns [x y] of reachable cell.
+  Otherwise returns nil."
+  [w from-xy cells]
+  (loop [w w
+         targets (sort-by-nearest-cell w from-xy cells)
+         ;;targets (get-e-many w ids)
+         ]
+    (when (seq targets)
+      (let [to-xy (first targets)]
+        ;; (prn :reachable from-xy target)
+        (if-not (s/connected? (:map w) from-xy to-xy)
+          (recur w (rest targets))
+          to-xy)))))
 
 (defn get-nbrs-dig-jobs [w xy free-jobs]
   (let [nbrs (map :ids (filter s/diggable? (map #(m/place w %)
@@ -124,8 +152,6 @@
             (if (seq stones)
               (let [worker-id (first workers)
                     xy (round-coords (get-c w worker-id :position))]
-                ;; find unoccupied neighbors and check if worker can get to
-                ;; them
                 (if-let [[task-id [tx ty]] (find-reachable-nbr w xy jobs)]
                   (if-let [[stone-id [sx sy]] (find-reachable w [tx ty] stones)]
                     (let []
@@ -174,3 +200,48 @@
   [w time]
   (update-comps w [:want-job] escape-walls time w))
 
+
+
+(defn get-free-storages
+  "returns list of free cells in storages"
+  [w]
+  (let [stores (get-cnames-ids w [:store])]
+    (reduce #(into %1 (map first
+                           (filter (fn [x] (nil? (second x)))
+                                   (-> (get-e w %2) :store :cells))))
+            []
+            stores)))
+
+(defn assign-haul-task
+  "For any new found worker it tries to find matching job
+  which is accessible and can have all needed materials"
+  [w t]
+  (let [workers (get-cnames-ids w (:free-hauler node))]
+    (if (seq workers)
+      (let [cells (get-free-storages w)]
+        ;; (prn :assign-haul cells)
+        (if (seq cells)
+          (let [items (get-cnames-ids w (:free-stone node) :exclude [:stored])]
+            (if (seq items)
+              (let [worker-id (first workers)
+                    xy (round-coords (get-c w worker-id :position))]
+                (if-let [[tx ty] (find-reachable-cell w xy cells)]
+                  (if-let [[item-id [sx sy]] (find-reachable w [tx ty] items)]
+                    (let [store-id (m/storage w [tx ty])]
+                      (prn :haul-assigned worker-id :id item-id :to store-id :cell [tx ty] :item [sx sy])
+                      (-> w 
+                          (update-entity store-id j/reserve-storage [tx ty] item-id)
+                          (update-entity item-id rem-c :free)
+                          (j/enqueue worker-id
+                                     [(move-to sx sy)
+                                      (pickup item-id)
+                                      (move-to tx ty)
+                                      (put item-id)
+                                      (job-haul store-id item-id)])))))))))))))
+
+(defn system-assign-haul-tasks
+  "take free workers and find next (closest?) jobs for them"
+  [w time]
+  (if-let [res (assign-haul-task w time)]
+    res
+    w))

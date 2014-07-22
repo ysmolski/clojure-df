@@ -50,4 +50,7 @@
         (update-entity stone-id set-c (free))
         (update-entity (:id comp) set-c (free)))))
 
+(defn reserve-storage [e [x y] item-id]
+  (assoc-in e [:store :cells [x y]] item-id))
+
 

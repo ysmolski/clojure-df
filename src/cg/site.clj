@@ -53,6 +53,13 @@
   ([m [x y]]
      (get-in m [x y :visible])))
 
+(defn storage
+  ([m [x y] val]
+     (assoc-in m [x y :storage] val))
+  ([m [x y]]
+     (get-in m [x y :storage])))
+
+
 (defn storage? [cell]
   (:storage cell))
 

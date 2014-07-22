@@ -16,6 +16,7 @@
 
            :free-digger [:worker :want-job :can-dig]
            :free-builder [:worker :want-job :can-build]
+           :free-hauler [:worker :want-job :can-haul]
 
            :free-dig [:task-dig :free]
            :free-build-wall [:task-build-wall :free]
@@ -122,6 +123,13 @@
   :id task-id
   :stone stone-id)
 
+(defcomp job-haul [store-id item-id]
+  :store store-id
+  :item item-id)
+
+(defcomp stored [id-where]
+  :store id-where)
+
 ;;;;
 ;;; Inventory
 
@@ -144,4 +152,4 @@
   :progress 50)
 
 (defcomp store [cells]
-  :cells (into {} (map (fn [x] [x #{}]) cells)))
+  :cells (into {} (map (fn [x] [x nil]) cells)))

@@ -107,8 +107,12 @@
 (defn get-cnames-ids
   "Returns ids of entities which have all the components
   specified in sequence cnames"
-  [ecs cnames]
-  (apply intersection (map #(get-cname-ids ecs %) cnames)))
+  [ecs cnames & {:keys [exclude]
+                 :or {exclude []}}]
+  (let [included (apply intersection (map #(get-cname-ids ecs %) cnames))]
+    (if (seq exclude)
+      (difference included (get-cnames-ids ecs exclude))
+      included)))
 
 (defn get-cnames-ents
   "return entities which have components specified by seq cnames"

@@ -85,3 +85,33 @@
   (let [ids (get-cnames-ids w [:job-build-wall])]
     (reduce #(try-build %1 %2 :job-build-wall :task-build-wall time) w ids)))
 
+(defn try-finish-haul
+  "takes world and id of worker who has a job-build-wall and tries to perform the job.
+   if job is completed then remove job property from worker and destroy job entity"
+  [w id job-name time]
+  (let [e (get-e w id)
+        e-xy (round-coords (e :position))
+        store-id (:store (job-name e))
+        item-id (:item (job-name e))
+        ;; task (get-e w task-id)
+        ;; stone (get-e w stone-id)
+        ;; task-xy (round-coords (:position task))
+        ;; stone-xy (round-coords (:position stone))
+        ;; progress (-> task task-name :progress)
+        ;; occupied (m/ids w e-xy :real)
+        ]
+    ;; (prn :build-do e-xy :o occupied :t task)
+    (if true
+      (-> w
+          (j/complete id job-name)
+          (update-entity item-id set-c (free))
+          (update-entity item-id set-c (stored store-id)))
+      ;; remove job from id and report failed job for entity
+      w)))
+
+(defn system-finish-hauls
+  [w time]
+  ;;(update-comps w [:job-dig] try-dig time w)
+  (let [ids (get-cnames-ids w [:job-haul])]
+    (reduce #(try-finish-haul %1 %2 :job-haul time) w ids)))
+

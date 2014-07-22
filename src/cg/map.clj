@@ -23,8 +23,11 @@
   ([ecs [x y] val]
      (update-in ecs [:map] s/region [(int x) (int y)] val)))
 
-(defn storage [ecs [x y] id]
-  (assoc-in ecs [:map (int x) (int y) :storage] id))
+(defn storage
+  ([ecs [x y]]
+     (get-in ecs [:map (int x) (int y) :storage]))
+  ([ecs [x y] id]
+     (assoc-in ecs [:map (int x) (int y) :storage] id)))
 
 
 (defn rem-if-in-cell

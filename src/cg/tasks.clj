@@ -49,7 +49,7 @@
 (defn designate-storage [world action cells]
   (let [world (load-entity world
                            :storage
-                           (renderable :wood :white)
+                           ;; (renderable :wood :white)
                            (store cells))
         id (last-id world)]
     (reduce #(m/storage %1 %2 id) world cells)))

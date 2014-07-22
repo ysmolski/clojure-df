@@ -186,12 +186,15 @@
               system-escape-walls
               system-assign-dig-tasks
               system-assign-build-tasks
+              system-assign-haul-tasks
               system-pickup
+              system-put
               system-move-contained
               system-done-job
               system-failed-job
               system-dig
-              system-build])
+              system-build
+              system-finish-hauls])
 
 (defn update-world
   "Handles ticks of the world, delta is the time passes since last tick"
