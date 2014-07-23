@@ -34,14 +34,13 @@
             (rem-e job-id)
             (m/dig job-xy)
             (add-with-prob 0.5 u/add-stone (job-xy 0) (job-xy 1)))
-        (update-entity w job-id #(update-in %1 [task-name :progress] - (math/round time))))
+        (update-comp w job-id [task-name :progress] - (math/round time)))
       ;; remove job from id and report failed job for entity
       (-> w
           (j/fail id job-name)))))
 
 (defn system-dig
   [w time]
-  ;;(update-comps w [:job-dig] try-dig time w)
   (let [ids (get-cnames-ids w [:job-dig])]
     (reduce #(try-dig %1 %2 :job-dig :task-dig time) w ids)))
 
@@ -71,7 +70,7 @@
             (rem-e stone-id)
             (m/put-construction task-xy :wall)
             (u/add-wall (task-xy 0) (task-xy 1)))
-        (update-entity w task-id #(update-in %1 [task-name :progress] - (math/round time))))
+        (update-comp w task-id [task-name :progress] - (math/round time)))
       ;; remove job from id and report failed job for entity
       (do
         (prn :build-abort occupied e-xy (job-name e))
@@ -81,7 +80,6 @@
 
 (defn system-build
   [w time]
-  ;;(update-comps w [:job-dig] try-dig time w)
   (let [ids (get-cnames-ids w [:job-build-wall])]
     (reduce #(try-build %1 %2 :job-build-wall :task-build-wall time) w ids)))
 
@@ -104,14 +102,13 @@
     (if true
       (-> w
           (j/complete id job-name)
-          (update-entity item-id set-c (free))
-          (update-entity item-id set-c (stored store-id)))
+          (set-c item-id (free))
+          (set-c item-id (stored store-id)))
       ;; remove job from id and report failed job for entity
       w)))
 
 (defn system-finish-hauls
   [w time]
-  ;;(update-comps w [:job-dig] try-dig time w)
   (let [ids (get-cnames-ids w [:job-haul])]
     (reduce #(try-finish-haul %1 %2 :job-haul time) w ids)))
 

@@ -5,10 +5,10 @@
 
 (defn contain [w container-id item-id]
   (-> w
-      (update-entity item-id set-c (contained container-id))
-      (update-entity container-id #(update-in %1 [:inventory :backpack] conj item-id))))
+      (set-c item-id (contained container-id))
+      (update-comp container-id [:inventory :backpack] conj item-id)))
 
 (defn uncontain [w container-id item-id]
   (-> w
-      (update-entity item-id rem-c :contained)
-      (update-entity container-id #(update-in %1 [:inventory :backpack] disj item-id))))
+      (rem-c item-id :contained)
+      (update-comp container-id [:inventory :backpack] disj item-id)))

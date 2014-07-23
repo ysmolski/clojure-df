@@ -34,5 +34,5 @@
           (set-c (path points))))))
 
 (defn system-path-find [w time]
-  (update-comps w (:path-find node) path-find-add time (:map w)))
+  (update-entities-by-cnames w (:path-find node) path-find-add time (:map w)))
 

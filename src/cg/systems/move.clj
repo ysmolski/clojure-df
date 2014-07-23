@@ -13,4 +13,4 @@
         (update-in [:position :y] + dy))))
 
 (defn system-move [w time]
-  (update-comps w (:move node) move time))
+  (update-entities-by-cnames w (:move node) move time))

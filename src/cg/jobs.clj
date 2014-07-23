@@ -7,9 +7,9 @@
 (defn enqueue
   ([w worker-id jobs]
      (-> w
-         (update-entity worker-id rem-c :want-job)
-         (update-entity worker-id set-c (done-job))
-         (update-entity worker-id set-c (job-queue jobs))))
+         (rem-c worker-id :want-job)
+         (set-c worker-id (done-job))
+         (set-c worker-id (job-queue jobs))))
   ([e jobs]
      (-> e
          (rem-c :want-job)
@@ -19,14 +19,14 @@
 (defn complete [w id job-name]
   (prn :complete-job id job-name)
   (-> w
-      (update-entity id rem-c job-name)
-      (update-entity id set-c (done-job))))
+      (rem-c id job-name)
+      (set-c id (done-job))))
 
 (defn fail [w id job-name]
   (prn :fail-job id job-name)
   (-> w
-      (update-entity id rem-c job-name)
-      (update-entity id set-c (failed-job))))
+      (rem-c id job-name)
+      (set-c id (failed-job))))
 
 
 (defmulti abort (fn [w comp] (:cname comp)))
@@ -38,7 +38,7 @@
   w)
 
 (defmethod abort :pickup [w comp]
-  (update-entity w (:id comp) set-c (free)))
+  (set-c w (:id comp) (free)))
 
 (defmethod abort :job-build-wall [w comp]
   (let [stone-id (:stone comp)
@@ -47,10 +47,12 @@
     ;; (prn stone-id stone )
     (-> w
         (i/uncontain container-id stone-id)
-        (update-entity stone-id set-c (free))
-        (update-entity (:id comp) set-c (free)))))
+        (set-c stone-id (free))
+        (set-c (:id comp) (free)))))
 
-(defn reserve-storage [e [x y] item-id]
-  (assoc-in e [:store :cells [x y]] item-id))
+(defn reserve-storage [w store-id [x y] item-id]
+  (update-entity w
+                 store-id
+                 #(assoc-in % [:store :cells [x y]] item-id)))
 
 

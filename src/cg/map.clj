@@ -1,8 +1,11 @@
 (ns cg.map
   "High level operations on ECS (both map and ecs entities)"
-  (:require [cg.comps :refer :all]
-            [cg.ecs :refer :all]
-            [cg.site :as s]))
+  (:require
+   [cg.astar :as astar]
+   [cg.common :refer :all]
+   [cg.comps :refer :all]
+   [cg.ecs :refer :all]
+   [cg.site :as s]))
 
 
 (defn place [ecs [x y]]
@@ -141,4 +144,109 @@
       (form xy what)
       (remove-region xy)))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Finders 
+
+(defn find-reachable-nbrs
+  "finds all neighbour points of to-xy reachable from from-xy"
+  [w [fx fy :as from-xy] to-xy]
+  (->> to-xy
+       (astar/neighbors (:map-size w))
+       (filter (partial s/connected? (:map w) from-xy))
+       (sort-by (fn [[tx ty]] (distance fx fy tx ty)))))
+
+;;; FIX: this is super slow when number of targets is high
+(defn sort-by-nearest
+  "returns list of ids and entity values sorted by the distance from-xy to target"
+  [w from-xy targets]
+  (let [[fx fy] from-xy
+        start (timer)
+        res (sort-by (fn [[_ e]]
+                       (let [[tx ty] (coords (:position e))]
+                         (distance fx fy tx ty)))
+                     targets)
+        elapsed (timer-end start)]
+    (prn :sort-by-nearest elapsed from-xy (map #(% 0) targets))
+    res))
+
+(defn sort-by-nearest-cell
+  "returns list of ids and entity values sorted by the distance from-xy to target"
+  [w from-xy targets]
+  (let [[fx fy] from-xy
+        start (timer)
+        res (sort-by (fn [[tx ty]]
+                       (distance fx fy tx ty))
+                     targets)
+        elapsed (timer-end start)]
+    (prn :sort-by-nearest-cell elapsed from-xy targets)
+    res))
+
+(defn sort-by-id [w from-xy targets]
+  (let [[fx fy] from-xy]
+    (sort-by (fn [[id _]] id) targets)))
+
+(defn find-reachable-nbr
+  "Tries to find free cell next to one of ids reachable from xy.
+  Returns [id [x y]] where
+  id - id of reachable target entity
+  x y - coords of found neighbour free-cell.
+  Otherwise returns nil."
+  [w from-xy ids]
+  (loop [w w
+         targets (sort-by-nearest w from-xy (get-e-many w ids))
+         ;;targets (get-e-many w ids)
+         ]
+    (when (seq targets)
+      (let [[id target] (first targets)
+              to-xy (round-coords (:position target))]
+        (let [reachable-nbrs (find-reachable-nbrs w from-xy to-xy)]
+          ;;(prn :reachable-nbrs reachable-nbrs)
+          (if (empty? reachable-nbrs)
+            (recur w (rest targets))
+            [id (first reachable-nbrs)]))))))
+
+(defn find-reachable
+  "Tries to find one reachable entity of ids from xy.
+  Returns id of reachable target entity.
+  Otherwise returns nil."
+  [w from-xy ids]
+  (loop [w w
+         targets (sort-by-nearest w from-xy (get-e-many w ids))
+         ;;targets (get-e-many w ids)
+         ]
+    (when (seq targets)
+      (let [[id target] (first targets)
+           to-xy (round-coords (:position target))]
+        ;; (prn :reachable from-xy target)
+        (if-not (s/connected? (:map w) from-xy to-xy)
+          (recur w (rest targets))
+          [id to-xy])))))
+
+(defn find-reachable-cell
+  "Tries to find one reachable target identified by pair of coordinates from xy.
+  Returns [x y] of reachable cell.
+  Otherwise returns nil."
+  [w from-xy cells]
+  (loop [w w
+         targets (sort-by-nearest-cell w from-xy cells)
+         ;;targets (get-e-many w ids)
+         ]
+    (when (seq targets)
+      (let [to-xy (first targets)]
+        ;; (prn :reachable from-xy target)
+        (if-not (s/connected? (:map w) from-xy to-xy)
+          (recur w (rest targets))
+          to-xy)))))
+
+
+(defn get-nbr-jobs [w xy free-jobs]
+  (let [nbrs (map :ids (map #(place w %)
+                            (astar/neighbors (:map-size w) xy)))
+        all-ids (apply clojure.set/union nbrs)
+        ids (clojure.set/intersection all-ids free-jobs)
+        id (first ids)]
+    (when id
+      (prn :found-close id (round-coords (:position (get-e w id))))
+      id)))
 

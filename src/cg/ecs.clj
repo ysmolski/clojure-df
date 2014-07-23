@@ -64,6 +64,24 @@
 (defn- update-e [ecs id entity]
   (assoc-in ecs [:etoc id] entity))
 
+(defn- removed-added [a b]
+  (let [a (set a)
+        b (set b)]
+    [(difference a b)
+     (difference b a)]))
+
+(defn- update-ctoe
+  "Updates ctoe according changes happened in entity id from state a to state b"
+  [ecs id a b]
+  (let [a (keys a)
+        b (keys b)]
+    (if (= a b)
+      ecs
+      (let [[removed added] (removed-added a b)]
+        (-> ecs 
+            (update-in [:ctoe] ctoe-rem-id-cnames id removed)
+            (update-in [:ctoe] ctoe-add-id-cnames id added))))))
+
 ;;;; 2nd level
 ;;;; read interface for ECS
 
@@ -189,34 +207,9 @@
   ([entity cname]
      (dissoc entity cname))
   ([ecs entity-id cname]
-     (-> #_(if (= cname :position)
-           (let [c (get-c ecs entity-id cname)]
-             ;;(prn entity-id c)
-             (map-rem-id ecs [(:x c) (:y c)] entity-id))
-           ecs)
-         (apply-update-fns ecs entity-id (get-e ecs entity-id) nil)
+     (-> (apply-update-fns ecs entity-id (get-e ecs entity-id) nil)
          (dissoc-in [:etoc entity-id] cname)
          (update-in [:ctoe cname] disj entity-id))))
-
-
-(defn- removed-added [a b]
-  (let [a (set a)
-        b (set b)]
-    [(difference a b)
-     (difference b a)]))
-
-
-(defn- update-ctoe
-  "Updates ctoe according changes happened in entity id from state a to state b"
-  [ecs id a b]
-  (let [a (keys a)
-        b (keys b)]
-    (if (= a b)
-      ecs
-      (let [[removed added] (removed-added a b)]
-        (-> ecs 
-            (update-in [:ctoe] ctoe-rem-id-cnames id removed)
-            (update-in [:ctoe] ctoe-add-id-cnames id added))))))
 
 (defn update-entity
   "Takes entity by id and calls function (f entity & args).
@@ -236,11 +229,15 @@
   [ecs ids f & args]
   (reduce #(apply update-entity %1 %2 f args) ecs ids))
 
-(defn update-comps
+(defn update-entities-by-cnames
   "update entities which have components-names using (f entity & args)"
   [ecs comp-names f & args]
   (let [ids (get-cnames-ids ecs comp-names)]
     (apply update-entities ecs ids f args)))
+
+(defn update-comp
+  [ecs entity-id comps-path f & args]
+  (update-entity ecs entity-id #(apply update-in %1 comps-path f args)))
 
 ;; DEPRECATED: not sure. is it needed???
 ;; (defn set-val

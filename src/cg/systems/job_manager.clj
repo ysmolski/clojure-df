@@ -43,7 +43,7 @@
         (update-entity id set-c (want-job)))))
 
 (defn system-done-job [w time]
-  (update-comps w (:done-job node) pr-done-job time))
+  (update-entities-by-cnames w (:done-job node) pr-done-job time))
 
 (defn system-failed-job [w time]
   (let [ids (get-cnames-ids w (:failed-job node))]

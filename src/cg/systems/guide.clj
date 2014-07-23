@@ -28,5 +28,5 @@
           (set-c e (velocity vx vy)))))))
 
 (defn system-guide [w time]
-  (update-comps w (:guide node) guide time))
+  (update-entities-by-cnames w (:guide node) guide time))
 

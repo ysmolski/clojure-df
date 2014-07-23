@@ -26,12 +26,12 @@
       (if (neg? (:progress job))
         (-> (if store-id
               (-> w
-                  (update-entity item-id rem-c :stored)
-                  (update-entity store-id j/reserve-storage item-xy nil))
+                  (rem-c item-id :stored)
+                  (j/reserve-storage store-id item-xy nil))
               w)
             (j/complete id job-name)
             (i/contain id item-id))
-        (update-entity w id #(update-in %1 [job-name :progress] - (math/round time))))
+        (update-comp w id [job-name :progress] - (math/round time)))
       ;; remove job from id and report failed job for entity
       (-> w
           (j/fail id job-name)
@@ -39,7 +39,6 @@
 
 (defn system-pickup
   [w time]
-  ;;(update-comps w [:job-dig] try-dig time w)
   (let [ids (get-cnames-ids w [:pickup])]
     (reduce #(try-pickup %1 %2 :pickup time) w ids)))
 
@@ -59,7 +58,7 @@
         (-> w
             (j/complete id job-name)
             (i/uncontain id item-id))
-        (update-entity w id #(update-in %1 [job-name :progress] - (math/round time))))
+        (update-comp w id [job-name :progress] - (math/round time)))
       ;; remove job from id and report failed job for entity
       (-> w
           (j/fail id job-name)
@@ -67,7 +66,6 @@
 
 (defn system-put
   [w time]
-  ;;(update-comps w [:job-dig] try-dig time w)
   (let [ids (get-cnames-ids w [:put])]
     (reduce #(try-put %1 %2 :put time) w ids)))
 
@@ -79,5 +77,5 @@
     (assoc e :position pos)))
 
 (defn system-move-contained [w time]
-  (update-comps w [:contained :position] move-contained w time))
+  (update-entities-by-cnames w [:contained :position] move-contained w time))
 
