@@ -89,3 +89,8 @@
   "N time applies w&args to f and then result is applied as w"
   [w n f & args]
   (reduce (fn [w _] (apply f w args)) w (range n)))
+
+(defn add-with-prob [w probability f & args]
+  (if (< (rand) probability)
+    (apply f w args)
+    w))

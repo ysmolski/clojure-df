@@ -10,7 +10,9 @@
   (:use cg.systems.job-manager)
   (:use cg.systems.job-exec)
   (:use cg.systems.inventory)
-
+  (:use cg.systems.build)
+  (:use cg.systems.dig)
+  (:use cg.systems.haul)
   (:require [clojure.math.numeric-tower :as math]
             [clojure.pprint :as pp]
             [cg.astar :as astar]

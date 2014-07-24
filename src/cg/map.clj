@@ -33,6 +33,13 @@
      (assoc-in ecs [:map (int x) (int y) :storage] id)))
 
 
+(defn passable-nbr
+  "finds passable neighbour next to x y"
+  [w xy]
+  (->> xy
+       (astar/neighbors (:map-size w))
+       (some #(if (s/passable? (place w %)) %))))
+
 (defn rem-if-in-cell
   "Removes from ECS entities found in cell xy for which (pred entity-id) is true"
   [pred ecs xy]
