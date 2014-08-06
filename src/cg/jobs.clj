@@ -1,7 +1,6 @@
 (ns cg.jobs
-  (:require [clojure.math.numeric-tower :as math]
+  (:require [cg.comps :refer :all]
             [cg.ecs :refer :all]
-            [cg.comps :refer :all]
             [cg.inv :as i]))
 
 (defn enqueue

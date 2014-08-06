@@ -1,5 +1,5 @@
 (ns cg.camera
-  (:use cg.common))
+  (:require [cg.common :refer :all]))
 
 ;;; Convert stuff
 

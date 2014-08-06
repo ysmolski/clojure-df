@@ -1,10 +1,6 @@
 (ns cg.systems.job-manager
-  [:use cg.common]
-  [:use cg.ecs]
-  [:use cg.comps]
-  (:require [cg.map :as m]
-            [cg.site :as s]
-            [cg.astar :as astar]
+  (:require [cg.comps :refer :all]
+            [cg.ecs :refer :all]
             [cg.jobs :as j]))
 
 (defn pr-done-job

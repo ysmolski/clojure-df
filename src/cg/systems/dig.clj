@@ -1,13 +1,11 @@
 (ns cg.systems.dig
-  [:use cg.common]
-  [:use cg.ecs]
-  [:use cg.comps]
-  (:require [clojure.math.numeric-tower :as math]
-            [cg.map :as m]
-            [cg.site :as s]
-            [cg.astar :as astar]
+  (:require [cg.common :refer :all]
+            [cg.comps :refer :all]
+            [cg.ecs :refer :all]
             [cg.jobs :as j]
-            [cg.units :as u]))
+            [cg.map :as m]
+            [cg.units :as u]
+            [clojure.math.numeric-tower :as math]))
 
 (defn assign-dig-task
   "For any new found worker it tries to find matching job

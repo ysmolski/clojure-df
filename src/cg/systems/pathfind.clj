@@ -1,9 +1,9 @@
 (ns cg.systems.pathfind
-  [:use cg.ecs]
-  [:use cg.comps]
-  [:use cg.common]
-  (:require [cg.site :as s]
-            [cg.astar :as astar]))
+  (:require [cg.astar :as astar]
+            [cg.common :refer :all]
+            [cg.comps :refer :all]
+            [cg.ecs :refer :all]
+            [cg.site :as s]))
 
 ;;; PATH FIND SYSTEM
 

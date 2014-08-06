@@ -1,20 +1,17 @@
 (ns cg.rendering
-  (:use cg.common)
-  (:use cg.ecs)
-  (:use cg.comps)
-  (:use cg.camera)
-  (:import [com.badlogic.gdx.graphics Texture]
-           [com.badlogic.gdx.graphics.glutils ShapeRenderer ShapeRenderer$ShapeType]
-           [com.badlogic.gdx.graphics.g2d SpriteBatch BitmapFont])
-
-  (:require [clojure.math.numeric-tower :as math]
-            [clojure.pprint :as pp]
+  (:require [cg.camera :refer :all]
+            [cg.common :refer :all]
+            [cg.comps :refer :all]
+            [cg.ecs :refer :all]
             [cg.map :as m]
             [cg.site :as s]
             [cg.tasks :as t]
+            [clojure.math.numeric-tower :as math]
             [play-clj.core :as g]
-            [play-clj.g2d :refer :all]
-            [play-clj.utils :as gu]))
+            [play-clj.g2d :refer :all])
+  (:import (com.badlogic.gdx.graphics.g2d BitmapFont SpriteBatch)
+           (com.badlogic.gdx.graphics.glutils ShapeRenderer
+                                              ShapeRenderer$ShapeType)))
 
 (def colors {:white (g/color :white)
              :black (g/color :black)

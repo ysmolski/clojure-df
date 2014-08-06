@@ -1,11 +1,10 @@
 (ns cg.map
   "High level operations on ECS (both map and ecs entities)"
-  (:require
-   [cg.astar :as astar]
-   [cg.common :refer :all]
-   [cg.comps :refer :all]
-   [cg.ecs :refer :all]
-   [cg.site :as s]))
+  (:require [cg.astar :as astar]
+            [cg.common :refer :all]
+            [cg.comps :refer :all]
+            [cg.ecs :refer :all]
+            [cg.site :as s]))
 
 
 (defn place [ecs [x y]]

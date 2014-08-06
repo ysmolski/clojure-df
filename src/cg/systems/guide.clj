@@ -1,7 +1,7 @@
 (ns cg.systems.guide
-  [:use cg.common]
-  [:use cg.ecs]
-  [:use cg.comps])
+  (:require [cg.common :refer :all]
+            [cg.comps :refer :all]
+            [cg.ecs :refer :all]))
 
 ;;; Guide System
 

@@ -1,7 +1,6 @@
 (ns cg.inv
-  (:require [clojure.math.numeric-tower :as math]
-            [cg.ecs :refer :all]
-            [cg.comps :refer :all]))
+  (:require [cg.comps :refer :all]
+            [cg.ecs :refer :all]))
 
 (defn contain [w container-id item-id]
   (-> w

@@ -1,14 +1,12 @@
 (ns cg.systems.build
-  [:use cg.common]
-  [:use cg.ecs]
-  [:use cg.comps]
-  (:require [clojure.math.numeric-tower :as math]
+  (:require [cg.common :refer :all]
+            [cg.comps :refer :all]
+            [cg.ecs :refer :all]
             [cg.inv :as i]
-            [cg.map :as m]
-            [cg.site :as s]
-            [cg.astar :as astar]
             [cg.jobs :as j]
-            [cg.units :as u]))
+            [cg.map :as m]
+            [cg.units :as u]
+            [clojure.math.numeric-tower :as math]))
 
 (defn assign-build-task
   "For any new found worker it tries to find matching job

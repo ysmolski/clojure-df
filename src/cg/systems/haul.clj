@@ -1,13 +1,8 @@
 (ns cg.systems.haul
-  [:use cg.common]
-  [:use cg.ecs]
-  [:use cg.comps]
-  (:require [clojure.math.numeric-tower :as math]
-            [cg.map :as m]
-            [cg.inv :as i]
-            [cg.units :as u]
-            [cg.astar :as astar]
-            [cg.jobs :as j]))
+  (:require [cg.comps :refer :all]
+            [cg.ecs :refer :all]
+            [cg.jobs :as j]
+            [cg.map :as m]))
 
 (defn get-free-storages
   "returns list of free cells in storages"

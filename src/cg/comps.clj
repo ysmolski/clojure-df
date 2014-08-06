@@ -1,7 +1,7 @@
 (ns cg.comps
-  (:require [clojure.math.numeric-tower :as math])
-  (:use [cg.ecs :only [defcomp]])
-  (:use cg.queue))
+  (:require [cg.ecs :refer [defcomp]]
+            [cg.queue :refer :all]
+            [clojure.math.numeric-tower :as math]))
 
 ;; Aspects of the system. each aspect is used by one system
 ;;

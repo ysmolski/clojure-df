@@ -1,13 +1,10 @@
 (ns cg.systems.inventory
-  [:use cg.common]
-  [:use cg.ecs]
-  [:use cg.comps]
-  (:require [clojure.math.numeric-tower :as math]
+  (:require [cg.common :refer :all]
+            [cg.comps :refer :all]
+            [cg.ecs :refer :all]
             [cg.inv :as i]
-            [cg.map :as m]
-            [cg.units :as u]
-            [cg.astar :as astar]
-            [cg.jobs :as j]))
+            [cg.jobs :as j]
+            [clojure.math.numeric-tower :as math]))
 
 ;; EXECUTE JOBS
 

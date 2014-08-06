@@ -1,6 +1,6 @@
 (ns cg.site
-  (:require [cg.astar :as a])
-  (:require [jordanlewis.data.union-find :as u]))
+  (:require [cg.astar :as a]
+            [jordanlewis.data.union-find :as u]))
 
 ;; tools
 (defn mapv-2d [f vecofvec]

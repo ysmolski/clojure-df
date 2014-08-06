@@ -1,31 +1,24 @@
 (ns cg.core
-  (:use cg.common)
-  (:use cg.ecs)
-  (:use cg.comps)
-  (:use cg.camera)
-  (:use cg.systems.move)
-  (:use cg.systems.guide)
-  (:use cg.systems.pathfind)
-  (:use cg.systems.job-assign)
-  (:use cg.systems.job-manager)
-  (:use cg.systems.job-exec)
-  (:use cg.systems.inventory)
-  (:use cg.systems.build)
-  (:use cg.systems.dig)
-  (:use cg.systems.haul)
-  (:require [clojure.math.numeric-tower :as math]
-            [clojure.pprint :as pp]
-            [cg.astar :as astar]
-            [cg.map :as m]
-            [cg.site :as s]
-            [cg.units :as u]
+  (:require [cg.camera :refer :all]
+            [cg.common :refer :all]
+            [cg.comps :refer :all]
+            [cg.ecs :refer :all]
             [cg.jobs :as j]
+            [cg.map :as m]
             [cg.rendering :as r]
+            [cg.site :as s]
+            [cg.systems.build :refer :all]
+            [cg.systems.dig :refer :all]
+            [cg.systems.guide :refer :all]
+            [cg.systems.haul :refer :all]
+            [cg.systems.inventory :refer :all]
+            [cg.systems.job-assign :refer :all]
+            [cg.systems.job-manager :refer :all]
+            [cg.systems.move :refer :all]
+            [cg.systems.pathfind :refer :all]
             [cg.tasks :as t]
-            [play-clj.core :as g]
-            [play-clj.g2d :refer :all]
-            [play-clj.utils :as gu])
-  )
+            [cg.units :as u]
+            [play-clj.core :as g]))
 
 ;; (set! *warn-on-reflection* true) 
 ;; (set! *unchecked-math* true)

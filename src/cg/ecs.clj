@@ -1,10 +1,6 @@
 (ns cg.ecs
   "Entity component system"
-;;  (:use midje.sweet)
-  (:use [clojure.pprint :only [pprint]])
-  (:use [clojure.set :only [intersection difference]])
-  (:use [cg.queue])
-  (:require [cg.site :as s]))
+  (:require [clojure.set :refer [difference intersection]]))
 
 ;;; All interactions with ecs should go via high order functions
 ;;; keeping ECS in consistency

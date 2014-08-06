@@ -1,6 +1,6 @@
 (ns cg.systems.move
-  [:use cg.ecs]
-  [:use cg.comps])
+  (:require [cg.comps :refer :all]
+            [cg.ecs :refer :all]))
 
 (defn move [e time]
   (let [v (:velocity e)
